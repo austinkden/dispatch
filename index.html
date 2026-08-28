@@ -1287,6 +1287,18 @@
       border-color: rgba(245, 158, 11, 0.4);
       color: var(--amber);
     }
+    .card-icon-btn.is-tones {
+      background: rgba(244, 63, 94, 0.18);
+      border-color: rgba(244, 63, 94, 0.5);
+      color: #fb7185;
+      font-weight: 700;
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.25);
+    }
+    .card-icon-btn.is-tones:hover {
+      background: rgba(244, 63, 94, 0.28);
+      border-color: #fb7185;
+      color: #ffffff;
+    }
     .card-icon-btn.delete-btn:hover {
       background: rgba(239, 68, 68, 0.15);
       border-color: var(--red);
@@ -3506,7 +3518,12 @@
         statusBadge = `<span class="badge-pill pending"><i data-lucide="clock" class="lucide-sm"></i> Pending</span>`;
       }
 
-      let tonesBadge = hasTones ? `<span class="badge-pill tones" title="3-beep alert tones detected at start of clip"><i data-lucide="bell" class="lucide-xs"></i> Tones</span>` : '';
+      let tonesBtn = `
+        <button class="card-icon-btn tones-toggle-btn ${hasTones ? 'is-tones' : ''}" data-id="${clip.id}" title="${hasTones ? 'Emergency Tones enabled (Click to remove)' : 'Click to tag with Emergency Tones'}">
+          <i data-lucide="bell" class="lucide-xs"></i>
+          <span>${hasTones ? 'Tones' : '+ Tone'}</span>
+        </button>
+      `;
       let savedBadge = isSaved ? `<span class="badge-pill saved"><i data-lucide="bookmark" class="lucide-sm"></i> Saved</span>` : '';
 
       const isManualTranscript = !!(meta.manual_transcript || meta.transcription_source === 'manual');
@@ -3566,7 +3583,7 @@
             </div>
 
             <div class="card-actions-right">
-              ${tonesBadge}
+              ${tonesBtn}
               ${savedBadge}
               ${statusBadge}
               <button class="card-icon-btn save-star-btn ${isSaved ? 'is-saved' : ''}" data-id="${clip.id}" title="${isSaved ? 'Unsave' : 'Save (Retain permanently)'}">
@@ -3826,6 +3843,37 @@
           const card = document.getElementById(`card-${id}`);
           if (card) card.classList.toggle('selected', e.target.checked);
           updateSelectionUI();
+        });
+      });
+
+      document.querySelectorAll('.tones-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          const clip = dispatches.find(d => String(d.id) === String(id));
+          if (!clip) return;
+
+          clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+          const currentTones = !!(clip.metadata.has_tones || clip.metadata.tones || clip.has_tones);
+          const newTones = !currentTones;
+          clip.metadata.has_tones = newTones;
+          clip.metadata.tones = newTones;
+          clip.metadata.manual_tones = true;
+          clip.has_tones = newTones;
+          render();
+
+          if (supabaseClient) {
+            try {
+              const { error } = await supabaseClient
+                .from('dispatches')
+                .update({ metadata: clip.metadata })
+                .eq('id', id);
+              if (error) throw error;
+              showToast(newTones ? 'Emergency tones tag enabled.' : 'Emergency tones tag removed.', 'info');
+            } catch (err) {
+              console.error('Tones update error:', err);
+            }
+          }
         });
       });
 

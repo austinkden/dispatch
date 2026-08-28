@@ -1,9 +1,10 @@
 -- ==============================================================================
 -- Trace Dispatch: Database & Storage Schema
 -- Run this SQL in your Supabase Project -> SQL Editor
+-- (100% Safe to run multiple times / Idempotent)
 -- ==============================================================================
 
--- 1. Create the dispatches table (with 8-character string ID, 7-day retention & save flag)
+-- 1. Create or Migrate the dispatches table (with 8-character string ID, 7-day retention & save flag)
 CREATE TABLE IF NOT EXISTS public.dispatches (
     id TEXT PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.dispatches (
 );
 
 -- Migration queries if you already created the table previously:
+ALTER TABLE public.dispatches ALTER COLUMN id DROP IDENTITY IF EXISTS;
 ALTER TABLE public.dispatches ALTER COLUMN id TYPE TEXT;
 ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS storage_path TEXT;
 ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS saved BOOLEAN NOT NULL DEFAULT FALSE;
@@ -31,56 +33,64 @@ CREATE INDEX IF NOT EXISTS idx_dispatches_saved ON public.dispatches (saved);
 ALTER TABLE public.dispatches ENABLE ROW LEVEL SECURITY;
 
 -- 4. Create policies to allow public anon read, insert, and update
--- Note: In production you can restrict updates/inserts using Supabase auth or service role key.
+DROP POLICY IF EXISTS "Allow public read access on dispatches" ON public.dispatches;
 CREATE POLICY "Allow public read access on dispatches"
     ON public.dispatches FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Allow public insert on dispatches" ON public.dispatches;
 CREATE POLICY "Allow public insert on dispatches"
     ON public.dispatches FOR INSERT
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public update on dispatches" ON public.dispatches;
 CREATE POLICY "Allow public update on dispatches"
     ON public.dispatches FOR UPDATE
     USING (true)
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public delete on dispatches" ON public.dispatches;
 CREATE POLICY "Allow public delete on dispatches"
     ON public.dispatches FOR DELETE
     USING (true);
 
--- 5. Enable Realtime on the dispatches table
-ALTER PUBLICATION supabase_realtime ADD TABLE public.dispatches;
+-- 5. Enable Realtime on the dispatches table (safely without throwing error if already added)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'dispatches'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.dispatches;
+    END IF;
+END $$;
 
 -- ==============================================================================
--- Supabase Storage Bucket Setup Instructions:
+-- Supabase Storage Bucket Setup
 -- ==============================================================================
--- In the Supabase Dashboard:
--- 1. Go to "Storage" -> Click "New Bucket"
--- 2. Set Name to: dispatch-clips
--- 3. Toggle "Public bucket" to ON (so audio can be played directly in browser and sent to Groq)
--- 4. Set Allowed MIME types to: audio/mpeg, audio/mp3, audio/* (or leave empty for all)
---
--- Or run the SQL below to create and configure the storage bucket via SQL:
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('dispatch-clips', 'dispatch-clips', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Policy to allow public reads from the dispatch-clips storage bucket
+-- Policies for dispatch-clips storage bucket
+DROP POLICY IF EXISTS "Public Read Access on dispatch-clips" ON storage.objects;
 CREATE POLICY "Public Read Access on dispatch-clips"
     ON storage.objects FOR SELECT
     USING (bucket_id = 'dispatch-clips');
 
--- Policy to allow uploads to dispatch-clips bucket
+DROP POLICY IF EXISTS "Allow Uploads to dispatch-clips" ON storage.objects;
 CREATE POLICY "Allow Uploads to dispatch-clips"
     ON storage.objects FOR INSERT
     WITH CHECK (bucket_id = 'dispatch-clips');
 
--- Policy to allow updates/deletions on dispatch-clips
+DROP POLICY IF EXISTS "Allow Updates to dispatch-clips" ON storage.objects;
 CREATE POLICY "Allow Updates to dispatch-clips"
     ON storage.objects FOR UPDATE
     USING (bucket_id = 'dispatch-clips');
 
+DROP POLICY IF EXISTS "Allow Deletes to dispatch-clips" ON storage.objects;
 CREATE POLICY "Allow Deletes to dispatch-clips"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'dispatch-clips');
@@ -88,7 +98,6 @@ CREATE POLICY "Allow Deletes to dispatch-clips"
 -- ==============================================================================
 -- 6. Server-Side Dashboard Passcode Authentication (RPC)
 -- ==============================================================================
--- Enables server-side authentication so plaintext passwords are never stored in client code.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE OR REPLACE FUNCTION public.verify_dashboard_passcode(candidate_passcode TEXT)
@@ -107,7 +116,6 @@ BEGIN
 END;
 $$;
 
--- Grant execute permissions to anon and authenticated roles for dashboard login
 GRANT EXECUTE ON FUNCTION public.verify_dashboard_passcode(TEXT) TO anon, authenticated;
 
 -- ==============================================================================
@@ -121,12 +129,13 @@ CREATE TABLE IF NOT EXISTS public.app_config (
 
 ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public read on app_config" ON public.app_config;
 CREATE POLICY "Allow public read on app_config"
     ON public.app_config FOR SELECT
     USING (true);
 
+DROP POLICY IF EXISTS "Allow public insert/update on app_config" ON public.app_config;
 CREATE POLICY "Allow public insert/update on app_config"
     ON public.app_config FOR ALL
     USING (true)
     WITH CHECK (true);
-
