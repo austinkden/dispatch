@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS public.dispatches (
     metadata JSONB DEFAULT '{}'::jsonb
 );
 
--- Migration query if you already created the table without the 'saved' or 'metadata' columns:
+-- Migration query if you already created the table without the newer columns:
+ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS storage_path TEXT;
 ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS saved BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 

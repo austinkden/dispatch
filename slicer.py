@@ -250,7 +250,9 @@ class DispatchUploader:
         self.bucket = bucket
         self.table = table
         self.client: Optional[Client] = None
+        self.has_storage_path_column = True
         self.has_saved_column = True
+        self.has_metadata_column = True
 
         if self.dry_run:
             log("STORAGE", "Running in DRY-RUN mode. Clips will not be uploaded to Supabase.", Colors.YELLOW)
@@ -345,25 +347,37 @@ class DispatchUploader:
             # 3. Insert record into Supabase table
             payload = {
                 "audio_url": public_url,
-                "storage_path": storage_path,
                 "duration": round(duration_sec, 2),
                 "transcribed": False
             }
-            if metadata:
+            if self.has_storage_path_column:
+                payload["storage_path"] = storage_path
+            if metadata and self.has_metadata_column:
                 payload["metadata"] = metadata
             if self.has_saved_column:
                 payload["saved"] = False
 
-            try:
-                db_res = self.client.table(self.table).insert(payload).execute()
-            except Exception as insert_err:
-                err_str = str(insert_err)
-                if "metadata" in err_str:
-                    payload.pop("metadata", None)
-                if "saved" in err_str:
-                    self.has_saved_column = False
-                    payload.pop("saved", None)
-                db_res = self.client.table(self.table).insert(payload).execute()
+            while True:
+                try:
+                    db_res = self.client.table(self.table).insert(payload).execute()
+                    break
+                except Exception as insert_err:
+                    err_str = str(insert_err)
+                    modified = False
+                    if "storage_path" in err_str and "storage_path" in payload:
+                        self.has_storage_path_column = False
+                        payload.pop("storage_path", None)
+                        modified = True
+                    if "metadata" in err_str and "metadata" in payload:
+                        self.has_metadata_column = False
+                        payload.pop("metadata", None)
+                        modified = True
+                    if "saved" in err_str and "saved" in payload:
+                        self.has_saved_column = False
+                        payload.pop("saved", None)
+                        modified = True
+                    if not modified:
+                        raise insert_err
 
             inserted_data = db_res.data[0] if db_res.data else payload
             tones_tag = f" {Colors.HEADER}[TONES DETECTED]{Colors.RESET}" if metadata and metadata.get("has_tones") else ""
@@ -385,11 +399,18 @@ class DispatchUploader:
         try:
             # Also purge any legacy ultra-short glitch clips (<= 0.2s)
             try:
-                short_res = self.client.table(self.table).select("id, audio_url, storage_path").lte("duration", 0.2).execute()
+                short_res = self.client.table(self.table).select("id, audio_url").lte("duration", 0.2).execute()
                 if short_res and short_res.data:
-                    short_paths = [c["storage_path"] for c in short_res.data if c.get("storage_path")]
+                    short_paths = []
+                    for c in short_res.data:
+                        audio_url = c.get("audio_url", "")
+                        if f"/{self.bucket}/" in audio_url:
+                            short_paths.append(audio_url.split(f"/{self.bucket}/")[-1])
                     if short_paths:
-                        self.client.storage.from_(self.bucket).remove(short_paths)
+                        try:
+                            self.client.storage.from_(self.bucket).remove(short_paths)
+                        except Exception:
+                            pass
                     for c in short_res.data:
                         self.client.table(self.table).delete().eq("id", c["id"]).execute()
                     log("RETENTION", f"Purged {len(short_res.data)} glitch clips (<= 0.2s).", Colors.GREEN)
