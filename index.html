@@ -18,9 +18,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,slnt,wdth,wght,GRAD,ROND@6..144,-10..0,25..151,1..1000,0..100,0..100&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Lucide Icons & Supabase JS SDK -->
+  <!-- Lucide Icons, Supabase JS SDK & JSZip -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <style>
     /* ==============================================================================
@@ -1617,14 +1618,25 @@
     }
 
     .download-link {
+      background: none;
+      border: 1px solid transparent;
       color: var(--on-surface-variant);
       font-size: 11px;
       text-decoration: none;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 4px;
+      cursor: pointer;
+      padding: 3px 7px;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease;
+      font-family: inherit;
     }
-    .download-link:hover { color: var(--primary); }
+    .download-link:hover {
+      color: var(--primary);
+      background: rgba(136, 89, 255, 0.12);
+      border-color: rgba(136, 89, 255, 0.3);
+    }
 
     /* Transcript Box */
     .transcript-box {
@@ -2110,10 +2122,6 @@
             <i data-lucide="bell" class="lucide-sm" style="color: #fb7185;"></i>
             Tones <span class="chip-count" id="countTones">(0)</span>
           </button>
-          <button class="quick-chip" data-filter="high">
-            <i data-lucide="alert-triangle" class="lucide-sm" style="color: #ef4444;"></i>
-            P1-P2 High <span class="chip-count" id="countHigh">(0)</span>
-          </button>
           <button class="quick-chip" data-filter="pending">
             <i data-lucide="clock" class="lucide-sm"></i>
             Pending <span class="chip-count" id="countPending">(0)</span>
@@ -2194,6 +2202,10 @@
             <button class="btn btn-tonal btn-sm" id="toggleSelectAllBtn" title="Select All Visible Dispatches">
               <i data-lucide="check-square" class="lucide-sm"></i>
               <span id="selectAllBtnText">Select All</span>
+            </button>
+            <button class="btn btn-tonal btn-sm" id="downloadSelectedBtn" disabled title="Download selected audio files">
+              <i data-lucide="download" class="lucide-sm"></i>
+              <span id="downloadSelectedBtnText">Download (0)</span>
             </button>
             <button class="btn btn-primary btn-sm" id="transcribeSelectedBtn" disabled>
               <i data-lucide="sparkles" class="lucide-sm"></i>
@@ -2396,6 +2408,9 @@
       <span id="mobileBatchCount">0 selected</span>
     </div>
     <div class="batch-bar-buttons">
+      <button class="btn btn-tonal btn-sm" id="mBatchDownloadBtn">
+        <i data-lucide="download" class="lucide-sm"></i> Download
+      </button>
       <button class="btn btn-primary btn-sm" id="mBatchTranscribeBtn">
         <i data-lucide="sparkles" class="lucide-sm"></i> Transcribe
       </button>
@@ -2841,11 +2856,6 @@
         const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
         return !!(meta.has_tones || meta.tones || d.has_tones);
       }).length;
-      const highCount = dispatches.filter(d => {
-        const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
-        const p = parseInt(meta.priority || d.priority || 0, 10);
-        return p === 1 || p === 2;
-      }).length;
 
       const setTxt = (id, val) => {
         const el = document.getElementById(id);
@@ -2857,7 +2867,6 @@
       setTxt('countTranscribed', `(${transcribed})`);
       setTxt('countSaved', `(${savedCount})`);
       setTxt('countTones', `(${tonesCount})`);
-      setTxt('countHigh', `(${highCount})`);
 
       setTxt('mCountAll', total);
       setTxt('mCountTranscribed', transcribed);
@@ -2940,12 +2949,11 @@
         const idStr = String(d.id || '');
         const createdMs = new Date(d.created_at || now).getTime();
 
-        // 1. Quick Chip Filter (All, Tones, High, Pending, Transcribed, Saved)
+        // 1. Quick Chip Filter (All, Tones, Pending, Transcribed, Saved)
         if (currentFilter === 'pending' && d.transcribed) return false;
         if (currentFilter === 'transcribed' && !d.transcribed) return false;
         if (currentFilter === 'saved' && !d.saved) return false;
         if (currentFilter === 'tones' && !hasTones) return false;
-        if (currentFilter === 'high' && (priority !== 1 && priority !== 2)) return false;
 
         // 2. Multi-Dimensional Filter: Tones
         if (filterOptions.tones === 'tones_only' && !hasTones) return false;
@@ -3252,10 +3260,16 @@
         transcriptContent = `
           <div class="transcript-empty">
             <span>Audio isolated and awaiting transcription</span>
-            <button class="btn btn-amber btn-sm single-transcribe-btn" data-id="${clip.id}">
-              <i data-lucide="sparkles" class="lucide-sm"></i>
-              Transcribe Clip
-            </button>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px;">
+              <button class="btn btn-amber btn-sm single-transcribe-btn" data-id="${clip.id}">
+                <i data-lucide="sparkles" class="lucide-sm"></i>
+                Transcribe AI
+              </button>
+              <button class="btn btn-tonal btn-sm single-manual-transcribe-btn" data-id="${clip.id}">
+                <i data-lucide="edit-3" class="lucide-sm"></i>
+                Manual Transcribe
+              </button>
+            </div>
           </div>
         `;
       }
@@ -3345,10 +3359,10 @@
                     <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="4.0">4.0x</button>
                   </div>
                 </div>
-                <a href="${clip.audio_url}" target="_blank" download="dispatch_${clip.id}.mp3" class="download-link">
+                <button class="download-link single-download-btn" data-id="${clip.id}" title="Download MP3 audio">
                   <i data-lucide="download" class="lucide-sm"></i>
                   .mp3
-                </a>
+                </button>
               </div>
             </div>
 
@@ -3383,97 +3397,21 @@
     }
 
     function attachFeedCardEvents() {
-      // Transcript Inline Editing & Title Re-generation
-      document.querySelectorAll('.edit-transcript-btn, .transcript-text.editable').forEach(el => {
+      // Transcript Manual Entry, Inline Editing & AI Titling
+      document.querySelectorAll('.single-manual-transcribe-btn, .edit-transcript-btn, .transcript-text.editable').forEach(el => {
         el.addEventListener('click', e => {
           e.stopPropagation();
           const id = el.getAttribute('data-id');
-          const wrap = document.getElementById(`transcriptWrap-${id}`);
-          const clip = dispatches.find(d => String(d.id) === String(id));
-          if (!wrap || !clip) return;
+          openManualTranscriptEditor(id);
+        });
+      });
 
-          wrap.innerHTML = `
-            <div class="transcript-editor-box" id="editor-${id}">
-              <textarea class="transcript-textarea" id="textarea-${id}" placeholder="Enter transcript text...">${escapeHtml(clip.transcript || '')}</textarea>
-              <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px;">
-                <button class="card-icon-btn cancel-edit-btn" data-id="${id}">Cancel</button>
-                <button class="btn btn-primary btn-sm save-edit-btn" data-id="${id}">
-                  <i data-lucide="sparkles" class="lucide-xs"></i> Save & Regenerate Title
-                </button>
-              </div>
-            </div>
-          `;
-          refreshLucideIcons();
-
-          const textarea = document.getElementById(`textarea-${id}`);
-          if (textarea) {
-            textarea.focus();
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-          }
-
-          const cancelBtn = wrap.querySelector('.cancel-edit-btn');
-          if (cancelBtn) {
-            cancelBtn.addEventListener('click', ev => {
-              ev.stopPropagation();
-              render();
-            });
-          }
-
-          const saveBtn = wrap.querySelector('.save-edit-btn');
-          if (saveBtn) {
-            saveBtn.addEventListener('click', async ev => {
-              ev.stopPropagation();
-              const newText = (textarea ? textarea.value : '').trim();
-              if (!newText) {
-                showToast('Transcript cannot be empty', 'error');
-                return;
-              }
-
-              saveBtn.disabled = true;
-              saveBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-xs spin-icon"></i> Regenerating...';
-              refreshLucideIcons();
-
-              clip.transcript = newText;
-              clip.transcribed = true;
-              clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
-
-              showToast('Transcript updated! Regenerating AI title...', 'info');
-
-              // Automatically re-generate incident title and priority from edited text
-              const aiMeta = await generateAiTitleAndPriority(newText);
-              if (aiMeta) {
-                if (aiMeta.title) clip.metadata.title = aiMeta.title;
-                if (aiMeta.priority) clip.metadata.priority = aiMeta.priority;
-                showToast(`AI Title updated to "${aiMeta.title || ''}"!`, 'success');
-              } else {
-                showToast('Transcript updated!', 'success');
-              }
-
-              render();
-
-              if (supabaseClient) {
-                try {
-                  const { error } = await supabaseClient
-                    .from('dispatches')
-                    .update({
-                      transcript: newText,
-                      transcribed: true,
-                      metadata: clip.metadata
-                    })
-                    .eq('id', id);
-
-                  if (error) {
-                    await supabaseClient
-                      .from('dispatches')
-                      .update({ transcript: newText, transcribed: true })
-                      .eq('id', id);
-                  }
-                } catch (err) {
-                  console.error('Transcript update error:', err);
-                }
-              }
-            });
-          }
+      // Single Audio Download
+      document.querySelectorAll('.single-download-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          downloadSingleAudio(id);
         });
       });
       // Call Title Inline Renaming
@@ -3846,17 +3784,304 @@
     }
 
     // ==============================================================================
-    // GROQ WHISPER TRANSCRIPTION
+    // AUDIO FETCHING, BLOB PROCESSING & DOWNLOAD ENGINE
     // ==============================================================================
-    async function transcribeClips(ids) {
-      if (!config.groqApiKey) {
-        showToast('Groq API Key required. Open settings.', 'error');
-        openModal();
+    async function fetchAudioBlob(clip) {
+      if (!clip) throw new Error('No clip provided');
+
+      // 1. Try Supabase storage SDK download first (bypasses CORS/range-request limits on mobile)
+      let storagePath = clip.storage_path;
+      if (!storagePath && clip.audio_url && clip.audio_url.includes('/dispatch-clips/')) {
+        storagePath = clip.audio_url.split('/dispatch-clips/')[1];
+      }
+
+      if (supabaseClient && storagePath) {
+        try {
+          const { data, error } = await supabaseClient.storage.from('dispatch-clips').download(storagePath);
+          if (!error && data) {
+            return new Blob([data], { type: 'audio/mpeg' });
+          }
+        } catch (sErr) {
+          console.warn('Supabase storage download fallback to fetch:', sErr);
+        }
+      }
+
+      // 2. Direct fetch with CORS mode
+      let url = clip.audio_url;
+      if (url && url.startsWith('http://') && window.location.protocol === 'https:') {
+        url = url.replace('http://', 'https://');
+      }
+
+      const resp = await fetch(url, { mode: 'cors' });
+      if (!resp.ok) throw new Error(`Could not fetch audio (${resp.status} ${resp.statusText})`);
+      const rawBlob = await resp.blob();
+      return new Blob([rawBlob], { type: 'audio/mpeg' });
+    }
+
+    async function downloadSingleAudio(id) {
+      const clip = dispatches.find(d => String(d.id) === String(id));
+      if (!clip) return;
+
+      const btn = document.querySelector(`.single-download-btn[data-id="${id}"]`);
+      const originalHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.innerHTML = '<i data-lucide="loader-2" class="lucide-xs spin-icon"></i>';
+        refreshLucideIcons();
+      }
+
+      try {
+        const blob = await fetchAudioBlob(clip);
+        const blobUrl = URL.createObjectURL(blob);
+        const createdDate = new Date(clip.created_at || Date.now());
+        const timeStr = createdDate.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `dispatch_${clip.id}_${timeStr}.mp3`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      } catch (err) {
+        console.error('Download single audio failed:', err);
+        window.open(clip.audio_url, '_blank');
+      } finally {
+        if (btn) {
+          btn.innerHTML = originalHtml;
+          refreshLucideIcons();
+        }
+      }
+    }
+
+    async function downloadSelectedAudio() {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+
+      const btn = document.getElementById('downloadSelectedBtn');
+      const mBtn = document.getElementById('mBatchDownloadBtn');
+      const originalText = btn ? btn.innerHTML : '';
+      const originalMText = mBtn ? mBtn.innerHTML : '';
+
+      if (ids.length === 1) {
+        await downloadSingleAudio(ids[0]);
         return;
       }
 
-      const total = ids.length;
-      showToast(`Transcribing ${total} clip${total > 1 ? 's' : ''} with Groq Whisper...`, 'info');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Packaging...';
+      }
+      if (mBtn) {
+        mBtn.disabled = true;
+        mBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Packaging...';
+      }
+      refreshLucideIcons();
+
+      try {
+        if (window.JSZip) {
+          const zip = new JSZip();
+          const folder = zip.folder("dispatch_audio_clips");
+
+          let completed = 0;
+          for (const id of ids) {
+            const clip = dispatches.find(d => String(d.id) === String(id));
+            if (!clip) continue;
+            try {
+              const blob = await fetchAudioBlob(clip);
+              const createdDate = new Date(clip.created_at || Date.now());
+              const timeStr = createdDate.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+              folder.file(`dispatch_${clip.id}_${timeStr}.mp3`, blob);
+              completed++;
+              if (btn) {
+                btn.innerHTML = `<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> ${completed}/${ids.length}`;
+                refreshLucideIcons();
+              }
+            } catch (fErr) {
+              console.warn(`Failed to package audio clip ${id}:`, fErr);
+            }
+          }
+
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const blobUrl = URL.createObjectURL(zipBlob);
+          const a = document.createElement('a');
+          const dateStr = new Date().toISOString().slice(0, 10);
+          a.href = blobUrl;
+          a.download = `dispatch_audio_recordings_${dateStr}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+        } else {
+          for (const id of ids) {
+            await downloadSingleAudio(id);
+            await new Promise(r => setTimeout(r, 400));
+          }
+        }
+      } catch (err) {
+        console.error('Batch audio download failed:', err);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+        if (mBtn) {
+          mBtn.disabled = false;
+          mBtn.innerHTML = originalMText;
+        }
+        refreshLucideIcons();
+      }
+    }
+
+    // ==============================================================================
+    // MANUAL TRANSCRIPTION ENGINE
+    // ==============================================================================
+    function openManualTranscriptEditor(id) {
+      const clip = dispatches.find(d => String(d.id) === String(id));
+      if (!clip) return;
+
+      const card = document.getElementById(`card-${id}`);
+      if (!card) return;
+
+      let wrap = document.getElementById(`transcriptWrap-${id}`);
+      if (!wrap) {
+        const transcriptBox = card.querySelector('.transcript-box');
+        if (transcriptBox) {
+          let emptyDiv = transcriptBox.querySelector('.transcript-empty');
+          if (emptyDiv) emptyDiv.remove();
+          wrap = document.createElement('div');
+          wrap.className = 'transcript-content-wrap';
+          wrap.id = `transcriptWrap-${id}`;
+          transcriptBox.appendChild(wrap);
+        }
+      }
+      if (!wrap) return;
+
+      const currentText = clip.transcript || '';
+      wrap.innerHTML = `
+        <div class="transcript-editor-box" id="editor-${id}">
+          <textarea class="transcript-textarea" id="textarea-${id}" placeholder="Type transcript manually here...">${escapeHtml(currentText)}</textarea>
+          <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px;">
+            <button class="card-icon-btn cancel-edit-btn" data-id="${id}">Cancel</button>
+            <button class="btn btn-tonal btn-sm save-manual-only-btn" data-id="${id}">
+              <i data-lucide="check" class="lucide-xs"></i> Save Transcript
+            </button>
+            <button class="btn btn-primary btn-sm save-edit-btn" data-id="${id}">
+              <i data-lucide="sparkles" class="lucide-xs"></i> Save & Auto-Title
+            </button>
+          </div>
+        </div>
+      `;
+      refreshLucideIcons();
+
+      const textarea = document.getElementById(`textarea-${id}`);
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+
+      const cancelBtn = wrap.querySelector('.cancel-edit-btn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', ev => {
+          ev.stopPropagation();
+          render();
+        });
+      }
+
+      const saveManualOnlyBtn = wrap.querySelector('.save-manual-only-btn');
+      if (saveManualOnlyBtn) {
+        saveManualOnlyBtn.addEventListener('click', async ev => {
+          ev.stopPropagation();
+          const newText = (textarea ? textarea.value : '').trim();
+          if (!newText) return;
+
+          saveManualOnlyBtn.disabled = true;
+          saveManualOnlyBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-xs spin-icon"></i> Saving...';
+          refreshLucideIcons();
+
+          clip.transcript = newText;
+          clip.transcribed = true;
+          clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+
+          if (supabaseClient) {
+            try {
+              const { error } = await supabaseClient
+                .from('dispatches')
+                .update({
+                  transcript: newText,
+                  transcribed: true,
+                  metadata: clip.metadata
+                })
+                .eq('id', id);
+
+              if (error) {
+                await supabaseClient
+                  .from('dispatches')
+                  .update({ transcript: newText, transcribed: true })
+                  .eq('id', id);
+              }
+            } catch (dbErr) {
+              console.warn('DB error saving manual transcript:', dbErr);
+            }
+          }
+          render();
+        });
+      }
+
+      const saveAiBtn = wrap.querySelector('.save-edit-btn');
+      if (saveAiBtn) {
+        saveAiBtn.addEventListener('click', async ev => {
+          ev.stopPropagation();
+          const newText = (textarea ? textarea.value : '').trim();
+          if (!newText) return;
+
+          saveAiBtn.disabled = true;
+          saveAiBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-xs spin-icon"></i> Titling...';
+          refreshLucideIcons();
+
+          clip.transcript = newText;
+          clip.transcribed = true;
+          clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+
+          const aiMeta = await generateAiTitleAndPriority(newText);
+          if (aiMeta) {
+            if (aiMeta.title) clip.metadata.title = aiMeta.title;
+            if (aiMeta.priority) clip.metadata.priority = aiMeta.priority;
+          }
+
+          if (supabaseClient) {
+            try {
+              const { error } = await supabaseClient
+                .from('dispatches')
+                .update({
+                  transcript: newText,
+                  transcribed: true,
+                  metadata: clip.metadata
+                })
+                .eq('id', id);
+
+              if (error) {
+                await supabaseClient
+                  .from('dispatches')
+                  .update({ transcript: newText, transcribed: true })
+                  .eq('id', id);
+              }
+            } catch (dbErr) {
+              console.warn('DB error saving transcript:', dbErr);
+            }
+          }
+          render();
+        });
+      }
+    }
+
+    // ==============================================================================
+    // GROQ WHISPER TRANSCRIPTION (OPTIMIZED FOR MOBILE & DESKTOP)
+    // ==============================================================================
+    async function transcribeClips(ids) {
+      const apiKey = (config.groqApiKey || '').trim();
+      if (!apiKey) {
+        openModal();
+        return;
+      }
 
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
@@ -3867,12 +4092,12 @@
         render();
 
         try {
-          const audioResp = await fetch(clip.audio_url);
-          if (!audioResp.ok) throw new Error(`Could not fetch audio (${audioResp.statusText})`);
-          const audioBlob = await audioResp.blob();
+          // Mobile & Desktop resilient audio download
+          const audioBlob = await fetchAudioBlob(clip);
 
           const formData = new FormData();
-          formData.append('file', audioBlob, `clip_${id}.mp3`);
+          const audioFile = new File([audioBlob], `clip_${id}.mp3`, { type: 'audio/mpeg' });
+          formData.append('file', audioFile);
           formData.append('model', DEFAULT_GROQ_MODEL);
           formData.append('temperature', '0.0');
           formData.append('response_format', 'json');
@@ -3880,7 +4105,7 @@
           const groqResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${config.groqApiKey}`
+              'Authorization': `Bearer ${apiKey}`
             },
             body: formData
           });
@@ -3936,12 +4161,9 @@
               console.warn('Database save error:', dbErr);
             }
           }
-
-          showToast(`Transcribed & Auto-Titled #${id}!`, 'success');
         } catch (err) {
           console.error(`Transcription error on clip ${id}:`, err);
           clip.transcribing = false;
-          showToast(`Transcription failed: ${err.message}`, 'error');
         }
 
         render();
@@ -4338,6 +4560,15 @@
         fetchDispatches();
       });
 
+      const mBatchDlBtn = document.getElementById('mBatchDownloadBtn');
+      if (mBatchDlBtn) {
+        mBatchDlBtn.addEventListener('click', () => {
+          if (selectedIds.size > 0) {
+            downloadSelectedAudio();
+          }
+        });
+      }
+
       document.getElementById('mBatchTranscribeBtn').addEventListener('click', () => {
         if (selectedIds.size > 0) {
           transcribeClips(Array.from(selectedIds));
@@ -4360,6 +4591,15 @@
         }
         render();
       });
+
+      const dlSelectedBtn = document.getElementById('downloadSelectedBtn');
+      if (dlSelectedBtn) {
+        dlSelectedBtn.addEventListener('click', () => {
+          if (selectedIds.size > 0) {
+            downloadSelectedAudio();
+          }
+        });
+      }
 
       document.getElementById('transcribeSelectedBtn').addEventListener('click', () => {
         if (selectedIds.size > 0) {
@@ -4536,6 +4776,8 @@
     function updateSelectionUI() {
       const transBtn = document.getElementById('transcribeSelectedBtn');
       const delBtn = document.getElementById('deleteSelectedBtn');
+      const dlBtn = document.getElementById('downloadSelectedBtn');
+      const dlBtnText = document.getElementById('downloadSelectedBtnText');
       const batchBar = document.getElementById('mobileBatchBar');
       const batchCount = document.getElementById('mobileBatchCount');
       const selectAllBtnText = document.getElementById('selectAllBtnText');
@@ -4544,6 +4786,13 @@
 
       if (selectAllBtnText) {
         selectAllBtnText.textContent = (filtered.length > 0 && count === filtered.length) ? 'Deselect All' : 'Select All';
+      }
+
+      if (dlBtn) {
+        dlBtn.disabled = count === 0;
+      }
+      if (dlBtnText) {
+        dlBtnText.textContent = `Download (${count})`;
       }
 
       transBtn.disabled = count === 0;
@@ -4575,7 +4824,6 @@
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-      showToast('Exported dispatches to JSON!', 'success');
     }
 
     function highlightKeywords(text, query) {
@@ -4611,20 +4859,8 @@
     }
 
     function showToast(message, type = 'info') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `m3-toast ${type}`;
-      let iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info';
-      toast.innerHTML = `<i data-lucide="${iconName}" class="lucide-sm"></i> <span>${message}</span>`;
-      container.appendChild(toast);
-      refreshLucideIcons();
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(4px)';
-        toast.style.transition = 'all 0.2s ease';
-        setTimeout(() => toast.remove(), 200);
-      }, 3000);
+      // Quiet logging to eliminate intrusive action toasts when clicking or modifying items
+      console.log(`[Notification ${type}]: ${message}`);
     }
 
     document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
