@@ -2387,12 +2387,23 @@
 
         <div class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Google Gemini API Key (Auto-Titling & Priority)</label>
+            <label class="form-label" style="margin-bottom: 0;">Google Gemini API Key (Auto-Titling & Fallback Transcriber)</label>
             <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size: 11px; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 3px;">
               Get Free Key <i data-lucide="external-link" class="lucide-xs"></i>
             </a>
           </div>
           <input type="password" id="cfgGeminiApiKey" class="form-input" placeholder="AIzaSy..." />
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Cloudflare Proxy URL (Bypass School/Network Firewall)</label>
+            <span style="font-size: 11px; color: var(--on-surface-variant);">Optional</span>
+          </div>
+          <input type="text" id="cfgProxyUrl" class="form-input" placeholder="https://dispatch-proxy.your-name.workers.dev" />
+          <span style="font-size: 11px; color: var(--on-surface-variant); margin-top: 4px; display: block;">
+            Routes API calls through Cloudflare to bypass school SSL cert errors (<code>ERR_CERT_AUTHORITY_INVALID</code>) & Groq blocks.
+          </span>
         </div>
       </div>
       <div class="modal-footer">
@@ -2459,7 +2470,8 @@
       supabaseUrl: 'https://uquhzylwnzprokmqadno.supabase.co',
       supabaseAnonKey: 'sb_publishable_1jzfgBYw-Ix38_IYqccQbQ_XpJ5jJW1',
       groqApiKey: '',
-      geminiApiKey: ''
+      geminiApiKey: '',
+      proxyUrl: ''
     };
 
     let supabaseClient = null;
@@ -2659,6 +2671,7 @@
       document.getElementById('cfgSupabaseAnonKey').value = config.supabaseAnonKey || '';
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
       document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey || '';
+      document.getElementById('cfgProxyUrl').value = config.proxyUrl || '';
 
       // Gracefully sync keys from backend database if available
       if (supabaseClient) {
@@ -2685,6 +2698,17 @@
             document.getElementById('cfgGeminiApiKey').value = geminiData.value;
           }
 
+          const { data: proxyData } = await supabaseClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'proxy_url')
+            .maybeSingle();
+
+          if (proxyData && proxyData.value) {
+            config.proxyUrl = proxyData.value;
+            document.getElementById('cfgProxyUrl').value = proxyData.value;
+          }
+
           localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
         } catch (err) {
           // Table may not be created yet, fallback to localStorage
@@ -2697,6 +2721,7 @@
       config.supabaseAnonKey = document.getElementById('cfgSupabaseAnonKey').value.trim();
       config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
       config.geminiApiKey = document.getElementById('cfgGeminiApiKey').value.trim();
+      config.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
 
       localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
       showToast('Settings saved!', 'success');
@@ -2720,10 +2745,30 @@
               updated_at: new Date().toISOString()
             });
           }
+          if (config.proxyUrl) {
+            await supabaseClient.from('app_config').upsert({
+              key: 'proxy_url',
+              value: config.proxyUrl,
+              updated_at: new Date().toISOString()
+            });
+          }
         } catch (err) {
           // Table may not exist yet in Supabase
         }
       }
+    }
+
+    function buildProxiedUrl(targetUrl) {
+      const proxy = (config.proxyUrl || '').trim();
+      if (!proxy) return targetUrl;
+      const cleanProxy = proxy.replace(/\/+$/, '');
+      if (cleanProxy.includes('{{url}}')) {
+        return cleanProxy.replace('{{url}}', encodeURIComponent(targetUrl));
+      }
+      if (cleanProxy.endsWith('/proxy')) {
+        return `${cleanProxy}?url=${encodeURIComponent(targetUrl)}`;
+      }
+      return `${cleanProxy}/${targetUrl}`;
     }
 
     function initSupabase() {
@@ -4074,14 +4119,79 @@
     }
 
     // ==============================================================================
-    // GROQ WHISPER TRANSCRIPTION (OPTIMIZED FOR MOBILE & DESKTOP)
+    // AUDIO TRANSCRIPTION ENGINE (GROQ WHISPER + GEMINI FALLBACK & CLOUDFLARE PROXY)
     // ==============================================================================
+    async function transcribeWithGemini(audioBlob) {
+      if (!config.geminiApiKey) return null;
+      try {
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = reader.result;
+            const b64 = typeof res === 'string' && res.includes(',') ? res.split(',')[1] : res;
+            resolve(b64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(audioBlob);
+        });
+
+        const geminiModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'];
+        for (const model of geminiModels) {
+          try {
+            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
+            const fetchUrl = buildProxiedUrl(targetUrl);
+            const resp = await fetch(fetchUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    {
+                      inline_data: {
+                        mime_type: 'audio/mp3',
+                        data: base64Data
+                      }
+                    },
+                    {
+                      text: 'You are an emergency dispatch audio transcription system. Transcribe the spoken words in this radio transmission accurately and verbatim. Return ONLY the transcribed text. Do not add quotes, introductory phrases, markdown, or timestamps.'
+                    }
+                  ]
+                }]
+              })
+            });
+
+            if (!resp.ok) {
+              const errTxt = await resp.text();
+              console.warn(`Gemini audio transcription model ${model} HTTP ${resp.status}:`, errTxt);
+              continue;
+            }
+
+            const data = await resp.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text && text.trim()) {
+              return text.trim();
+            }
+          } catch (mErr) {
+            console.warn(`Gemini audio model ${model} error:`, mErr);
+          }
+        }
+      } catch (err) {
+        console.warn('Gemini audio blob conversion failed:', err);
+      }
+      return null;
+    }
+
     async function transcribeClips(ids) {
-      const apiKey = (config.groqApiKey || '').trim();
-      if (!apiKey) {
+      const groqKey = (config.groqApiKey || '').trim();
+      const geminiKey = (config.geminiApiKey || '').trim();
+
+      if (!groqKey && !geminiKey) {
+        showToast('Please enter your Groq API Key or Google Gemini API Key in Settings.', 'info');
         openModal();
         return;
       }
+
+      let networkCertBlocked = false;
 
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
@@ -4094,36 +4204,72 @@
         try {
           // Mobile & Desktop resilient audio download
           const audioBlob = await fetchAudioBlob(clip);
+          let transcriptText = null;
 
-          const formData = new FormData();
-          const audioFile = new File([audioBlob], `clip_${id}.mp3`, { type: 'audio/mpeg' });
-          formData.append('file', audioFile);
-          formData.append('model', DEFAULT_GROQ_MODEL);
-          formData.append('temperature', '0.0');
-          formData.append('response_format', 'json');
+          // 1. Primary Engine: Groq Whisper
+          if (groqKey) {
+            try {
+              const formData = new FormData();
+              const audioFile = new File([audioBlob], `clip_${id}.mp3`, { type: 'audio/mpeg' });
+              formData.append('file', audioFile);
+              formData.append('model', DEFAULT_GROQ_MODEL);
+              formData.append('temperature', '0.0');
+              formData.append('response_format', 'json');
 
-          const groqResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: formData
-          });
+              const targetUrl = 'https://api.groq.com/openai/v1/audio/transcriptions';
+              const fetchUrl = buildProxiedUrl(targetUrl);
 
-          if (!groqResp.ok) {
-            const errData = await groqResp.json().catch(() => ({}));
-            throw new Error(errData.error?.message || `Groq API returned HTTP ${groqResp.status}`);
+              const groqResp = await fetch(fetchUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${groqKey}`
+                },
+                body: formData
+              });
+
+              if (!groqResp.ok) {
+                const errData = await groqResp.json().catch(() => ({}));
+                throw new Error(errData.error?.message || `Groq API returned HTTP ${groqResp.status}`);
+              }
+
+              const result = await groqResp.json();
+              transcriptText = result.text ? result.text.trim() : '(No speech detected)';
+            } catch (groqErr) {
+              console.warn(`Groq Whisper transcription failed on clip ${id}:`, groqErr);
+              if (groqErr.name === 'TypeError' || String(groqErr.message).includes('Failed to fetch')) {
+                networkCertBlocked = true;
+              }
+            }
           }
 
-          const result = await groqResp.json();
-          const transcriptText = result.text ? result.text.trim() : '(No speech detected)';
+          // 2. Secondary Fallback Engine: Google Gemini 2.0 / 1.5 Flash Audio
+          if ((!transcriptText || transcriptText === '(No speech detected)') && geminiKey) {
+            try {
+              const geminiText = await transcribeWithGemini(audioBlob);
+              if (geminiText) {
+                transcriptText = geminiText;
+              }
+            } catch (geminiErr) {
+              console.warn(`Gemini fallback transcription failed on clip ${id}:`, geminiErr);
+              if (geminiErr.name === 'TypeError' || String(geminiErr.message).includes('Failed to fetch')) {
+                networkCertBlocked = true;
+              }
+            }
+          }
+
+          if (!transcriptText) {
+            if (networkCertBlocked) {
+              throw new Error('School/Network Wi-Fi SSL firewall blocked connection. Enter a Cloudflare Proxy URL in Settings to bypass.');
+            }
+            throw new Error('Transcription failed on both Groq and Gemini engines.');
+          }
 
           clip.transcript = transcriptText;
           clip.transcribed = true;
           clip.transcribing = false;
           clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
 
-          // Automatically generate AI Incident Title & Priority with LLaMA 3.1
+          // Automatically generate AI Incident Title & Priority
           if (transcriptText && transcriptText !== '(No speech detected)') {
             const aiMeta = await generateAiTitleAndPriority(transcriptText);
             if (aiMeta) {
@@ -4164,9 +4310,14 @@
         } catch (err) {
           console.error(`Transcription error on clip ${id}:`, err);
           clip.transcribing = false;
+          showToast(`Clip #${id}: ${err.message}`, 'error');
         }
 
         render();
+      }
+
+      if (networkCertBlocked && !config.proxyUrl) {
+        showToast('Network/SSL Error: Configure a Cloudflare Proxy URL in Settings to bypass school Wi-Fi blocks.', 'error');
       }
 
       selectedIds.clear();
@@ -4201,8 +4352,9 @@
         const geminiModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
         for (const model of geminiModels) {
           try {
-            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
-            const resp = await fetch(endpoint, {
+            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
+            const fetchUrl = buildProxiedUrl(targetUrl);
+            const resp = await fetch(fetchUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -4251,7 +4403,9 @@
 
         for (const model of groqCandidateModels) {
           try {
-            const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            const targetUrl = 'https://api.groq.com/openai/v1/chat/completions';
+            const fetchUrl = buildProxiedUrl(targetUrl);
+            const resp = await fetch(fetchUrl, {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${config.groqApiKey.trim()}`,
