@@ -1097,8 +1097,9 @@
         <i data-lucide="settings" class="lucide-sm"></i>
         <span class="btn-label-text">Settings</span>
       </button>
-      <button id="lock-btn" class="control-btn" title="Lock Console">
+      <button id="lock-btn" class="control-btn" title="Lock Console (Ctrl+L)">
         <i data-lucide="lock" class="lucide-sm"></i>
+        <span class="btn-kbd"><kbd>Ctrl</kbd><kbd>L</kbd></span>
         <span class="btn-label-text">Lock</span>
       </button>
     </div>
@@ -1990,9 +1991,12 @@
       });
 
       document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
           e.preventDefault();
           searchInput.focus();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+          e.preventDefault();
+          lockApp();
         }
       });
       document.getElementById('quick-search-btn').addEventListener('click', () => {

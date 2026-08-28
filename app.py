@@ -101,7 +101,7 @@ Your dashboard is live on **GitHub Pages** (or visit your custom domain).
 
 with gr.Blocks(title="Trace Dispatch - 24/7 Cloud Worker") as demo:
     gr.Markdown("# 📻 Trace Dispatch — 24/7 Emergency Audio Ingestion Daemon")
-    status_output = gr.Markdown(get_worker_status_markdown)
+    status_output = gr.Markdown(value=get_worker_status_markdown())
     refresh_btn = gr.Button("🔄 Refresh Status")
     refresh_btn.click(fn=get_worker_status_markdown, outputs=status_output)
 
