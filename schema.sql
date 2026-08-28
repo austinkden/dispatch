@@ -107,3 +107,23 @@ $$;
 -- Grant execute permissions to anon and authenticated roles for dashboard login
 GRANT EXECUTE ON FUNCTION public.verify_dashboard_passcode(TEXT) TO anon, authenticated;
 
+-- ==============================================================================
+-- 7. App Configuration Store (Groq API Key & Settings Persistence)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.app_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.app_config ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read on app_config"
+    ON public.app_config FOR SELECT
+    USING (true);
+
+CREATE POLICY "Allow public insert/update on app_config"
+    ON public.app_config FOR ALL
+    USING (true)
+    WITH CHECK (true);
+

@@ -179,8 +179,20 @@ class DispatchUploader:
             log("STORAGE", f"Supabase client initialized ({url})", Colors.GREEN)
             self.purge_expired_clips(days=RETENTION_DAYS)
         except Exception as e:
-            log("ERROR", f"Failed to initialize Supabase client: {e}", Colors.RED)
+            log("STORAGE", f"Failed to initialize Supabase client: {e}", Colors.RED)
             self.dry_run = True
+
+    def get_config_value(self, key: str) -> Optional[str]:
+        """Fetches a configuration setting from the backend app_config table."""
+        if not self.client:
+            return None
+        try:
+            resp = self.client.table("app_config").select("value").eq("key", key).maybe_single().execute()
+            if resp and resp.data and "value" in resp.data:
+                return resp.data["value"]
+        except Exception:
+            pass
+        return None
 
     def broadcast_status(self, state: str, dbfs: float = -90.0, duration: float = 0.0):
         """Broadcasts live VAD state ('RECORDING' vs 'MONITORING' vs 'IDLE') to the web UI in real-time."""

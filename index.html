@@ -357,6 +357,19 @@
       .btn-kbd { display: none; }
       .top-controls-bar { padding: 0.6rem 0.9rem; }
       .control-btn { padding: 6px 10px; }
+      #liveStatusText { display: none; }
+      .live-status-badge {
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        justify-content: center;
+        gap: 0;
+      }
+      .status-dot-indicator {
+        width: 8px;
+        height: 8px;
+      }
     }
 
     /* ==============================================================================
@@ -784,6 +797,160 @@
       color: var(--red);
     }
 
+    /* Call Title & Priority Buttons */
+    .card-call-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--outline-variant);
+      flex-wrap: wrap;
+    }
+
+    .call-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 170px;
+    }
+
+    .call-title-text {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--on-surface);
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .call-title-text:hover {
+      background: var(--surface-variant);
+      color: var(--primary);
+    }
+
+    .call-title-input {
+      background: var(--surface-variant);
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+      color: var(--on-surface);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 3px 8px;
+      width: 100%;
+      max-width: 250px;
+      outline: none;
+    }
+
+    .call-rename-btn {
+      background: none;
+      border: none;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      padding: 3px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      transition: color 0.15s;
+    }
+    .call-rename-btn:hover {
+      color: var(--primary);
+    }
+
+    /* Priority 1-5 Buttons */
+    .priority-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .priority-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--on-surface-variant);
+    }
+
+    .priority-btn-group {
+      display: inline-flex;
+      align-items: center;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-full);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .priority-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--on-surface-variant);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .priority-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--on-surface);
+    }
+
+    .priority-btn.p1.active {
+      background: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    }
+    .priority-btn.p2.active {
+      background: #f97316;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+    }
+    .priority-btn.p3.active {
+      background: #eab308;
+      color: #000000;
+      box-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+    }
+    .priority-btn.p4.active {
+      background: #06b6d4;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+    }
+    .priority-btn.p5.active {
+      background: #64748b;
+      color: #ffffff;
+    }
+
+    /* Priority border highlights on cards */
+    .dispatch-card.priority-1 {
+      border-left: 3px solid #ef4444;
+    }
+    .dispatch-card.priority-2 {
+      border-left: 3px solid #f97316;
+    }
+    .dispatch-card.priority-3 {
+      border-left: 3px solid #eab308;
+    }
+    .dispatch-card.priority-4 {
+      border-left: 3px solid #06b6d4;
+    }
+    .dispatch-card.priority-5 {
+      border-left: 3px solid #64748b;
+    }
+
     /* Card Content Grid */
     .card-body-grid {
       display: grid;
@@ -874,15 +1041,84 @@
       border-top: 1px solid var(--outline-variant);
     }
 
+    .speed-selector-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
     .speed-chip {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--outline);
       color: var(--on-surface-variant);
       font-family: var(--font-mono);
-      font-size: 10.5px;
-      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
       border-radius: var(--radius-sm);
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s ease;
+    }
+    .speed-chip:hover, .speed-chip.active {
+      background: var(--surface-container-highest);
+      border-color: var(--primary);
+      color: var(--on-surface);
+    }
+
+    .lucide-xs {
+      width: 11px;
+      height: 11px;
+      stroke-width: 2.5;
+    }
+
+    .speed-dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 5px);
+      left: 0;
+      background: var(--surface-container-highest);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      display: none;
+      padding: 4px;
+      gap: 3px;
+      z-index: 100;
+      animation: m3-fade 0.15s ease;
+    }
+    .speed-dropdown-menu.open {
+      display: flex;
+    }
+
+    .speed-opt {
+      background: none;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--on-surface-variant);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 7px;
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+    }
+    .speed-opt:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--on-surface);
+    }
+    .speed-opt.active {
+      background: var(--primary-container);
+      border-color: var(--primary);
+      color: var(--on-primary-container);
+    }
+
+    .chip-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      opacity: 0.8;
+      margin-left: 2px;
     }
 
     .download-link {
@@ -1275,8 +1511,9 @@
         <i data-lucide="search" class="lucide-sm"></i>
         <span class="btn-kbd"><kbd>Ctrl</kbd><kbd>K</kbd></span>
       </button>
-      <button id="settings-btn" class="control-btn" title="API Settings">
+      <button id="settings-btn" class="control-btn" title="API Settings (Ctrl+S)">
         <i data-lucide="settings" class="lucide-sm"></i>
+        <span class="btn-kbd"><kbd>Ctrl</kbd><kbd>S</kbd></span>
         <span class="btn-label-text">Settings</span>
       </button>
       <button id="lock-btn" class="control-btn" title="Lock Console (Ctrl+L)">
@@ -1301,69 +1538,34 @@
       </div>
     </header>
 
-    <!-- Metrics Cards Grid -->
-    <section class="portal-grid">
-      <div class="portal-card">
-        <div class="card-header-row">
-          <span class="card-title">Dispatches</span>
-          <i data-lucide="radio" class="lucide-sm" style="color: var(--primary);"></i>
-        </div>
-        <div class="card-value" id="statTotalClips">0</div>
-        <div class="card-footer">Indexed transmissions</div>
-      </div>
-
-      <div class="portal-card">
-        <div class="card-header-row">
-          <span class="card-title">Transcribed</span>
-          <i data-lucide="sparkles" class="lucide-sm" style="color: var(--tertiary);"></i>
-        </div>
-        <div class="card-value" id="statTranscribed">0</div>
-        <div class="card-footer" id="statTranscribedPct">0% completion</div>
-      </div>
-
-      <div class="portal-card">
-        <div class="card-header-row">
-          <span class="card-title">Pending</span>
-          <i data-lucide="clock" class="lucide-sm" style="color: var(--amber);"></i>
-        </div>
-        <div class="card-value" id="statPending">0</div>
-        <div class="card-footer">Awaiting Groq</div>
-      </div>
-
-      <div class="portal-card">
-        <div class="card-header-row">
-          <span class="card-title">Saved</span>
-          <i data-lucide="bookmark" class="lucide-sm" style="color: var(--secondary);"></i>
-        </div>
-        <div class="card-value" id="statSaved">0</div>
-        <div class="card-footer">No 7-day purge</div>
-      </div>
-    </section>
-
-    <!-- Action Toolbar & Quick Chips -->
+    <!-- Action Toolbar & Quick Chips with Dynamic Badges -->
     <section class="toolbar-section">
       <div class="toolbar-top-row">
         <div class="search-input-wrap">
           <i data-lucide="search" class="lucide search-icon"></i>
-          <input type="text" id="searchInput" class="search-input" placeholder="Search transcripts in real-time..." />
+          <input type="text" id="searchInput" class="search-input" placeholder="Search transcripts or call names in real-time..." />
         </div>
 
         <div class="filter-chips-container">
           <button class="quick-chip active" data-filter="all">
             <i data-lucide="layers" class="lucide-sm"></i>
-            All
+            All <span class="chip-count" id="countAll">(0)</span>
           </button>
           <button class="quick-chip" data-filter="pending">
             <i data-lucide="clock" class="lucide-sm"></i>
-            Pending
+            Pending <span class="chip-count" id="countPending">(0)</span>
           </button>
           <button class="quick-chip" data-filter="transcribed">
             <i data-lucide="sparkles" class="lucide-sm"></i>
-            Transcribed
+            Transcribed <span class="chip-count" id="countTranscribed">(0)</span>
           </button>
           <button class="quick-chip" data-filter="saved">
             <i data-lucide="bookmark" class="lucide-sm"></i>
-            Saved
+            Saved <span class="chip-count" id="countSaved">(0)</span>
+          </button>
+          <button class="quick-chip" data-filter="high">
+            <i data-lucide="alert-triangle" class="lucide-sm" style="color: #ef4444;"></i>
+            P1-P2 High <span class="chip-count" id="countHigh">(0)</span>
           </button>
         </div>
       </div>
@@ -1629,13 +1831,13 @@
       if (state === 'RECORDING') {
         badge.classList.add('recording');
         const durStr = duration > 0 ? ` (${duration.toFixed(1)}s)` : '';
-        text.textContent = `RECORDING CLIP${durStr}`;
-      } else if (state === 'MONITORING' || state === 'IDLE') {
+        text.textContent = `RECORDING${durStr}`;
+      } else if (state === 'MONITORING' || state === 'IDLE' || state === 'LISTENING') {
         badge.classList.add('monitoring');
-        text.textContent = 'LISTENING // MONITORING';
+        text.textContent = 'LISTENING';
       } else {
         badge.classList.add('offline');
-        text.textContent = 'LISTENER OFFLINE';
+        text.textContent = 'OFFLINE';
       }
     }
 
@@ -1643,10 +1845,10 @@
       if (heartbeatCheckTimer) clearInterval(heartbeatCheckTimer);
       heartbeatCheckTimer = setInterval(() => {
         const elapsed = (Date.now() - lastHeartbeatTimestamp) / 1000;
-        if (lastHeartbeatTimestamp === 0 || elapsed > 3.0) {
+        if (lastHeartbeatTimestamp === 0 || elapsed > 5.0) {
           setAudioStatus('OFFLINE');
         }
-      }, 1000);
+      }, 1500);
     }
 
     // ==============================================================================
@@ -1661,7 +1863,7 @@
       refreshLucideIcons();
     }
 
-    function loadConfig() {
+    async function loadConfig() {
       const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
       if (saved) {
         try { config = { ...config, ...JSON.parse(saved) }; } catch (e) {}
@@ -1669,26 +1871,66 @@
       document.getElementById('cfgSupabaseUrl').value = config.supabaseUrl || '';
       document.getElementById('cfgSupabaseAnonKey').value = config.supabaseAnonKey || '';
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
+
+      // Sync Groq key from backend database if available
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'groq_api_key')
+            .maybeSingle();
+
+          if (!error && data && data.value) {
+            config.groqApiKey = data.value;
+            document.getElementById('cfgGroqApiKey').value = data.value;
+            localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+          }
+        } catch (err) {
+          // Ignore if app_config not created yet
+        }
+      }
     }
 
-    function saveConfig() {
+    async function saveConfig() {
       config.supabaseUrl = document.getElementById('cfgSupabaseUrl').value.trim();
       config.supabaseAnonKey = document.getElementById('cfgSupabaseAnonKey').value.trim();
       config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
 
       localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
-      showToast('Settings saved successfully!', 'success');
+      showToast('Settings saved!', 'success');
       closeModal();
       initSupabase();
-      fetchDispatches();
+
+      // Persist Groq API key to Supabase backend app_config table
+      if (supabaseClient && config.groqApiKey) {
+        try {
+          const { error } = await supabaseClient
+            .from('app_config')
+            .upsert({
+              key: 'groq_api_key',
+              value: config.groqApiKey,
+              updated_at: new Date().toISOString()
+            });
+
+          if (!error) {
+            showToast('Groq API Key synced to backend database!', 'success');
+          } else {
+            console.warn('Backend app_config save note:', error.message);
+          }
+        } catch (err) {
+          console.warn('Backend config save failed:', err);
+        }
+      }
     }
 
     function initSupabase() {
-      if (config.supabaseUrl && config.supabaseAnonKey && window.supabase) {
+      if (window.supabase && config.supabaseUrl && config.supabaseAnonKey) {
         try {
           supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
           setupRealtime();
           setupStatusBroadcastListener();
+          loadConfig(); // Fetch synced backend config if present
         } catch (err) {
           console.error('Supabase init failed:', err);
         }
@@ -1770,27 +2012,48 @@
       const transcribed = dispatches.filter(d => d.transcribed).length;
       const pending = total - transcribed;
       const savedCount = dispatches.filter(d => d.saved).length;
+      const highCount = dispatches.filter(d => {
+        const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
+        const p = parseInt(meta.priority || d.priority || 0, 10);
+        return p === 1 || p === 2;
+      }).length;
 
-      document.getElementById('statTotalClips').textContent = total;
-      document.getElementById('statTranscribed').textContent = transcribed;
-      document.getElementById('statPending').textContent = pending;
-      document.getElementById('statSaved').textContent = savedCount;
-      document.getElementById('statTranscribedPct').textContent = total > 0 
-        ? `${Math.round((transcribed / total) * 100)}% complete` 
-        : '0% complete';
+      const setTxt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+
+      setTxt('countAll', `(${total})`);
+      setTxt('countPending', `(${pending})`);
+      setTxt('countTranscribed', `(${transcribed})`);
+      setTxt('countSaved', `(${savedCount})`);
+      setTxt('countHigh', `(${highCount})`);
+
+      setTxt('mCountAll', total);
+      setTxt('mCountTranscribed', transcribed);
+      setTxt('mCountSaved', savedCount);
     }
 
     function getFilteredDispatches() {
       return dispatches.filter(d => {
+        const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
+        const priority = parseInt(meta.priority || d.priority || 0, 10);
+
         if (currentFilter === 'pending' && d.transcribed) return false;
         if (currentFilter === 'transcribed' && !d.transcribed) return false;
         if (currentFilter === 'saved' && !d.saved) return false;
+        if (currentFilter === 'p1' && priority !== 1) return false;
+        if (currentFilter === 'p2' && priority !== 2) return false;
+        if (currentFilter === 'high' && (priority !== 1 && priority !== 2)) return false;
 
         if (currentSearch) {
           const q = currentSearch.toLowerCase();
+          const title = (meta.title || d.title || `Dispatch #${d.id}`).toLowerCase();
+          const titleMatch = title.includes(q);
           const transcriptMatch = (d.transcript || '').toLowerCase().includes(q);
           const idMatch = String(d.id || '').toLowerCase().includes(q);
-          return transcriptMatch || idMatch;
+          const priorityMatch = (q.startsWith('p') || q.startsWith('pri')) && String(priority) === q.replace(/\D/g, '');
+          return titleMatch || transcriptMatch || idMatch || priorityMatch;
         }
         return true;
       });
@@ -1805,7 +2068,7 @@
         feedEl.innerHTML = '';
         emptyEl.style.display = 'block';
         if (currentSearch) {
-          document.getElementById('emptyTitle').textContent = 'No matching transcripts found';
+          document.getElementById('emptyTitle').textContent = 'No matching transcripts or calls found';
           document.getElementById('emptyDesc').textContent = `No dispatches matched "${currentSearch}".`;
         } else if (currentFilter === 'saved') {
           document.getElementById('emptyTitle').textContent = 'No Saved Dispatches';
@@ -1819,14 +2082,48 @@
       }
 
       emptyEl.style.display = 'none';
+
+      // Preserve active audio playback state without interruption
+      let playingClipId = null;
+      let playingCurrentTime = 0;
+      let isPlaying = false;
+      let currentRate = 1.0;
+
+      if (currentlyPlayingAudio && !currentlyPlayingAudio.paused) {
+        playingClipId = currentlyPlayingAudio.id ? currentlyPlayingAudio.id.replace('audio-', '') : null;
+        playingCurrentTime = currentlyPlayingAudio.currentTime;
+        currentRate = currentlyPlayingAudio.playbackRate || 1.0;
+        isPlaying = true;
+      }
+
       feedEl.innerHTML = filtered.map(clip => createClipCardHtml(clip)).join('');
       attachFeedCardEvents();
+
+      // Seamlessly resume playback if an audio was playing
+      if (isPlaying && playingClipId) {
+        const restoredAudio = document.getElementById(`audio-${playingClipId}`);
+        const playBtn = document.querySelector(`[data-audio-id="audio-${playingClipId}"]`);
+        if (restoredAudio) {
+          restoredAudio.playbackRate = currentRate;
+          restoredAudio.currentTime = playingCurrentTime;
+          restoredAudio.play().catch(e => console.warn('Audio resume error:', e));
+          currentlyPlayingAudio = restoredAudio;
+          currentlyPlayingBtn = playBtn;
+          if (playBtn) {
+            playBtn.innerHTML = '<i data-lucide="pause" class="lucide"></i>';
+          }
+        }
+      }
+
       refreshLucideIcons();
     }
 
     function createClipCardHtml(clip) {
       const isSelected = selectedIds.has(clip.id);
       const isSaved = !!clip.saved;
+      const meta = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+      const customTitle = meta.title || clip.title || `Dispatch #${clip.id}`;
+      const priority = parseInt(meta.priority || clip.priority || 0, 10);
       const createdDate = new Date(clip.created_at || Date.now());
       const timeAgo = formatTimeAgo(createdDate);
       const timeAbsolute = createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1865,7 +2162,8 @@
       }
 
       return `
-        <div class="dispatch-card ${isSelected ? 'selected' : ''}" id="card-${clip.id}" data-id="${clip.id}">
+        <div class="dispatch-card ${isSelected ? 'selected' : ''} ${priority > 0 ? `priority-${priority}` : ''}" id="card-${clip.id}" data-id="${clip.id}">
+          <!-- Top Metabar -->
           <div class="card-top-bar">
             <div class="card-meta-left">
               <label class="m3-checkbox">
@@ -1893,6 +2191,30 @@
             </div>
           </div>
 
+          <!-- Call Title & Priority 1-5 Bar -->
+          <div class="card-call-header">
+            <div class="call-title-wrap" id="titleWrap-${clip.id}">
+              <span class="call-title-text" data-id="${clip.id}" title="Click to rename call">
+                <i data-lucide="tag" class="lucide-sm" style="color: var(--primary);"></i>
+                <span class="title-label" id="titleText-${clip.id}">${escapeHtml(customTitle)}</span>
+              </span>
+              <button class="call-rename-btn" data-id="${clip.id}" title="Rename call title">
+                <i data-lucide="edit-3" class="lucide-sm"></i>
+              </button>
+            </div>
+
+            <div class="priority-selector">
+              <span class="priority-label">Priority:</span>
+              <div class="priority-btn-group">
+                <button class="priority-btn p1 ${priority === 1 ? 'active' : ''}" data-id="${clip.id}" data-priority="1" title="P1 - Critical / Emergency">1</button>
+                <button class="priority-btn p2 ${priority === 2 ? 'active' : ''}" data-id="${clip.id}" data-priority="2" title="P2 - High Incident">2</button>
+                <button class="priority-btn p3 ${priority === 3 ? 'active' : ''}" data-id="${clip.id}" data-priority="3" title="P3 - Medium">3</button>
+                <button class="priority-btn p4 ${priority === 4 ? 'active' : ''}" data-id="${clip.id}" data-priority="4" title="P4 - Routine">4</button>
+                <button class="priority-btn p5 ${priority === 5 ? 'active' : ''}" data-id="${clip.id}" data-priority="5" title="P5 - Low / Info">5</button>
+              </div>
+            </div>
+          </div>
+
           <div class="card-body-grid">
             <!-- Audio Player -->
             <div class="audio-player-box">
@@ -1910,7 +2232,19 @@
                 </div>
               </div>
               <div class="audio-bottom-bar">
-                <button class="speed-chip" data-audio-id="audio-${clip.id}">1.0x</button>
+                <div class="speed-selector-wrap" id="speedWrap-${clip.id}">
+                  <button class="speed-chip" data-audio-id="audio-${clip.id}" data-id="${clip.id}" title="Playback speed">
+                    <span class="speed-val" id="speedVal-${clip.id}">1.0x</span>
+                    <i data-lucide="chevron-down" class="lucide-xs"></i>
+                  </button>
+                  <div class="speed-dropdown-menu" id="speedMenu-${clip.id}">
+                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="0.5">0.5x</button>
+                    <button class="speed-opt active" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.0">1.0x</button>
+                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.5">1.5x</button>
+                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="2.0">2.0x</button>
+                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="4.0">4.0x</button>
+                  </div>
+                </div>
                 <a href="${clip.audio_url}" target="_blank" download="dispatch_${clip.id}.mp3" class="download-link">
                   <i data-lucide="download" class="lucide-sm"></i>
                   .mp3
@@ -1945,6 +2279,133 @@
     }
 
     function attachFeedCardEvents() {
+      // Call Title Inline Renaming
+      document.querySelectorAll('.call-title-text, .call-rename-btn').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = el.getAttribute('data-id');
+          const wrap = document.getElementById(`titleWrap-${id}`);
+          const clip = dispatches.find(d => String(d.id) === String(id));
+          if (!wrap || !clip) return;
+
+          const meta = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+          const currentVal = meta.title || clip.title || `Dispatch #${id}`;
+
+          wrap.innerHTML = `
+            <input type="text" class="call-title-input" id="inputTitle-${id}" value="${escapeHtml(currentVal)}" maxlength="50" placeholder="Call Name / Incident..." />
+          `;
+
+          const input = document.getElementById(`inputTitle-${id}`);
+          if (input) {
+            input.focus();
+            input.select();
+
+            const saveTitle = async () => {
+              const newVal = input.value.trim() || `Dispatch #${id}`;
+              clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+              clip.metadata.title = newVal;
+              clip.metadata.manual_title = true;
+              render();
+
+              if (supabaseClient) {
+                try {
+                  const { error } = await supabaseClient
+                    .from('dispatches')
+                    .update({ metadata: clip.metadata })
+                    .eq('id', id);
+                  if (error) throw error;
+                  showToast('Call name updated!', 'success');
+                } catch (err) {
+                  console.error('Title save error:', err);
+                }
+              }
+            };
+
+            input.addEventListener('blur', saveTitle);
+            input.addEventListener('keydown', ev => {
+              if (ev.key === 'Enter') {
+                ev.preventDefault();
+                input.blur();
+              } else if (ev.key === 'Escape') {
+                render();
+              }
+            });
+          }
+        });
+      });
+
+      // Priority 1-5 Selector Buttons
+      document.querySelectorAll('.priority-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          const pVal = parseInt(btn.getAttribute('data-priority'), 10);
+          const clip = dispatches.find(d => String(d.id) === String(id));
+          if (!clip) return;
+
+          clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+          const currentP = parseInt(clip.metadata.priority || 0, 10);
+          const newP = currentP === pVal ? 0 : pVal;
+          clip.metadata.priority = newP;
+          clip.metadata.manual_priority = true;
+          render();
+
+          if (supabaseClient) {
+            try {
+              const { error } = await supabaseClient
+                .from('dispatches')
+                .update({ metadata: clip.metadata })
+                .eq('id', id);
+              if (error) throw error;
+              showToast(newP > 0 ? `Priority set to P${newP}` : 'Priority cleared', 'info');
+            } catch (err) {
+              console.error('Priority update error:', err);
+            }
+          }
+        });
+      });
+
+      // Speed Selector Dropdown & Option Handler
+      document.querySelectorAll('.speed-chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = chip.getAttribute('data-id');
+          const menu = document.getElementById(`speedMenu-${id}`);
+          const wasOpen = menu && menu.classList.contains('open');
+
+          // Close all open speed menus
+          document.querySelectorAll('.speed-dropdown-menu').forEach(m => m.classList.remove('open'));
+
+          if (menu && !wasOpen) {
+            menu.classList.add('open');
+          }
+        });
+      });
+
+      document.querySelectorAll('.speed-opt').forEach(opt => {
+        opt.addEventListener('click', e => {
+          e.stopPropagation();
+          const audioId = opt.getAttribute('data-audio-id');
+          const id = opt.getAttribute('data-id');
+          const speed = parseFloat(opt.getAttribute('data-speed'));
+          const audio = document.getElementById(audioId);
+          if (audio) {
+            audio.playbackRate = speed;
+          }
+
+          const menu = document.getElementById(`speedMenu-${id}`);
+          if (menu) {
+            menu.querySelectorAll('.speed-opt').forEach(o => o.classList.toggle('active', parseFloat(o.getAttribute('data-speed')) === speed));
+            menu.classList.remove('open');
+          }
+
+          const valSpan = document.getElementById(`speedVal-${id}`);
+          if (valSpan) {
+            valSpan.textContent = `${speed}x`;
+          }
+        });
+      });
+
       document.querySelectorAll('.clip-select-check').forEach(chk => {
         chk.addEventListener('change', e => {
           const id = e.target.getAttribute('data-id');
@@ -2067,55 +2528,45 @@
           });
         }
       });
-
-      document.querySelectorAll('.speed-chip').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const audioId = btn.getAttribute('data-audio-id');
-          const audio = document.getElementById(audioId);
-          if (!audio) return;
-
-          const speeds = [1.0, 1.25, 1.5, 2.0];
-          const curr = audio.playbackRate || 1.0;
-          const nextIdx = (speeds.indexOf(curr) + 1) % speeds.length;
-          const nextSpeed = speeds[nextIdx];
-
-          audio.playbackRate = nextSpeed;
-          btn.textContent = `${nextSpeed}x`;
-        });
-      });
     }
 
     // ==============================================================================
     // MANUAL DELETION ENGINE
     // ==============================================================================
     async function deleteClips(ids) {
-      if (!supabaseClient || ids.length === 0) return;
+      if (!supabaseClient) {
+        showToast('Supabase client not initialized.', 'error');
+        return;
+      }
 
       const total = ids.length;
       showToast(`Deleting ${total} dispatch${total > 1 ? 'es' : ''}...`, 'info');
 
-      const storagePaths = [];
-      ids.forEach(id => {
-        const clip = dispatches.find(d => String(d.id) === String(id));
-        if (clip && clip.audio_url && clip.audio_url.includes('/dispatch-clips/')) {
-          const path = clip.audio_url.split('/dispatch-clips/')[1];
-          if (path) storagePaths.push(path);
-        }
-      });
-
-      if (storagePaths.length > 0) {
-        try {
-          await supabaseClient.storage.from('dispatch-clips').remove(storagePaths);
-        } catch (err) {
-          console.warn('Storage delete warning:', err);
-        }
-      }
-
       try {
-        for (const id of ids) {
-          await supabaseClient.from('dispatches').delete().eq('id', id);
+        const clipsToDelete = dispatches.filter(d => ids.includes(String(d.id)));
+        const storagePaths = clipsToDelete
+          .map(d => d.storage_path)
+          .filter(Boolean);
+
+        if (storagePaths.length > 0) {
+          const { error: storageError } = await supabaseClient
+            .storage
+            .from('dispatches')
+            .remove(storagePaths);
+
+          if (storageError) {
+            console.warn('Storage deletion warning:', storageError.message);
+          }
         }
-        dispatches = dispatches.filter(d => !ids.includes(String(d.id)) && !ids.includes(d.id));
+
+        const { error: dbError } = await supabaseClient
+          .from('dispatches')
+          .delete()
+          .in('id', ids);
+
+        if (dbError) throw dbError;
+
+        dispatches = dispatches.filter(d => !ids.includes(String(d.id)));
         ids.forEach(id => selectedIds.delete(id));
         render();
         showToast(`Deleted ${total} dispatch${total > 1 ? 'es' : ''}.`, 'success');
@@ -2176,18 +2627,33 @@
           clip.transcript = transcriptText;
           clip.transcribed = true;
           clip.transcribing = false;
+          clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+
+          // Automatically generate AI Incident Title & Priority with LLaMA 3.1
+          if (transcriptText && transcriptText !== '(No speech detected)') {
+            const aiMeta = await generateAiTitleAndPriority(transcriptText);
+            if (aiMeta) {
+              if (aiMeta.title && !clip.metadata.manual_title) {
+                clip.metadata.title = aiMeta.title;
+              }
+              if (aiMeta.priority && !clip.metadata.manual_priority) {
+                clip.metadata.priority = aiMeta.priority;
+              }
+            }
+          }
 
           if (supabaseClient) {
             await supabaseClient
               .from('dispatches')
               .update({
                 transcript: transcriptText,
-                transcribed: true
+                transcribed: true,
+                metadata: clip.metadata
               })
               .eq('id', id);
           }
 
-          showToast(`Transcribed clip #${id}`, 'success');
+          showToast(`Transcribed & Auto-Titled #${id}!`, 'success');
         } catch (err) {
           console.error(`Transcription error on clip ${id}:`, err);
           clip.transcribing = false;
@@ -2199,6 +2665,49 @@
 
       selectedIds.clear();
       updateSelectionUI();
+    }
+
+    async function generateAiTitleAndPriority(transcript) {
+      if (!config.groqApiKey || !transcript || transcript.length < 5) return null;
+      try {
+        const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.groqApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are an expert emergency dispatch radio analyst. Given a police/fire/EMS radio transmission transcript, generate a short incident title (2 to 5 words, e.g. "Structure Fire - Main St", "Traffic Stop Unit 4", "Medical Emergency Code 3", "Suspicious Vehicle", "Routine Radio Check") and a priority level from 1 (critical/emergency) to 5 (routine/info). Return strictly a JSON object with keys "title" (string) and "priority" (number 1-5).'
+              },
+              {
+                role: 'user',
+                content: transcript
+              }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.1,
+            max_tokens: 120
+          })
+        });
+
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const rawContent = data.choices?.[0]?.message?.content;
+        if (rawContent) {
+          const parsed = JSON.parse(rawContent);
+          return {
+            title: parsed.title ? String(parsed.title).trim() : null,
+            priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
+          };
+        }
+      } catch (err) {
+        console.warn('AI titling warning:', err);
+      }
+      return null;
     }
 
     // ==============================================================================
@@ -2218,8 +2727,17 @@
         } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
           e.preventDefault();
           lockApp();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          openModal();
         }
       });
+
+      // Close open dropdowns on background click
+      document.addEventListener('click', () => {
+        document.querySelectorAll('.speed-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+      });
+
       document.getElementById('quick-search-btn').addEventListener('click', () => {
         searchInput.focus();
       });
