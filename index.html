@@ -760,6 +760,13 @@
       color: #c084fc;
       border-color: rgba(136, 89, 255, 0.25);
     }
+    .badge-pill.tones {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fb7185;
+      border-color: rgba(244, 63, 94, 0.45);
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.2);
+    }
 
     .card-actions-right {
       display: flex;
@@ -1166,6 +1173,35 @@
       color: var(--on-surface);
       line-height: 1.5;
       word-break: break-word;
+    }
+
+    .transcript-text.editable {
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      padding: 3px 5px;
+      margin: -3px -5px;
+      transition: background-color 0.15s ease;
+    }
+    .transcript-text.editable:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .transcript-textarea {
+      width: 100%;
+      background: var(--surface-container-high);
+      border: 1px solid var(--primary);
+      border-radius: var(--radius-sm);
+      color: var(--on-surface);
+      font-size: 13px;
+      line-height: 1.45;
+      padding: 8px 10px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 64px;
+      outline: none;
+    }
+    .transcript-textarea:focus {
+      box-shadow: 0 0 0 2px rgba(136, 89, 255, 0.25);
     }
 
     .highlight {
@@ -1985,6 +2021,15 @@
       realtimeChannel = supabaseClient
         .channel('public:dispatches')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dispatches' }, payload => {
+          const duration = parseFloat(payload.new?.duration || 0);
+          if (duration <= 0.2) {
+            // Auto-discard and delete <=0.2s ultra-short clips
+            if (supabaseClient && payload.new?.id) {
+              deleteClips([String(payload.new.id)]);
+            }
+            return;
+          }
+
           if (!dispatches.some(d => String(d.id) === String(payload.new.id))) {
             showToast(`New transmission slice saved (${payload.new.duration}s)`, 'info');
             dispatches.unshift(payload.new);
@@ -2019,8 +2064,24 @@
           .limit(150);
 
         if (error) throw error;
-        dispatches = data || [];
+        
+        const validClips = [];
+        const shortIds = [];
+        (data || []).forEach(d => {
+          if (parseFloat(d.duration || 0) <= 0.2) {
+            shortIds.push(String(d.id));
+          } else {
+            validClips.push(d);
+          }
+        });
+
+        dispatches = validClips;
         render();
+
+        // Automatically delete clips <= 0.2s in background
+        if (shortIds.length > 0) {
+          deleteClips(shortIds);
+        }
       } catch (err) {
         console.error('Fetch error:', err);
         showToast('Error fetching dispatches: ' + err.message, 'error');
@@ -2151,6 +2212,7 @@
       const meta = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
       const customTitle = meta.title || clip.title || 'Transcript';
       const priority = parseInt(meta.priority || clip.priority || 0, 10);
+      const hasTones = !!(meta.has_tones || meta.tones || clip.has_tones);
       const createdDate = new Date(clip.created_at || Date.now());
       const timeAgo = formatTimeAgo(createdDate);
       const timeAbsolute = createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -2165,6 +2227,7 @@
         statusBadge = `<span class="badge-pill pending"><i data-lucide="clock" class="lucide-sm"></i> Pending</span>`;
       }
 
+      let tonesBadge = hasTones ? `<span class="badge-pill tones" title="3-beep alert tones detected at start of clip"><i data-lucide="bell" class="lucide-xs"></i> Tones</span>` : '';
       let savedBadge = isSaved ? `<span class="badge-pill saved"><i data-lucide="bookmark" class="lucide-sm"></i> Saved</span>` : '';
 
       let transcriptContent = '';
@@ -2175,7 +2238,11 @@
         `;
       } else if (clip.transcribed && clip.transcript) {
         const highlighted = highlightKeywords(clip.transcript, currentSearch);
-        transcriptContent = `<div class="transcript-text">${highlighted}</div>`;
+        transcriptContent = `
+          <div class="transcript-content-wrap" id="transcriptWrap-${clip.id}">
+            <div class="transcript-text editable" data-id="${clip.id}" title="Click to edit transcript and regenerate title">${highlighted}</div>
+          </div>
+        `;
       } else {
         transcriptContent = `
           <div class="transcript-empty">
@@ -2206,6 +2273,7 @@
             </div>
 
             <div class="card-actions-right">
+              ${tonesBadge}
               ${savedBadge}
               ${statusBadge}
               <button class="card-icon-btn save-star-btn ${isSaved ? 'is-saved' : ''}" data-id="${clip.id}" title="${isSaved ? 'Unsave' : 'Save (Retain permanently)'}">
@@ -2288,11 +2356,15 @@
                 </span>
                 ${clip.transcribed ? `
                   <div style="display: flex; align-items: center; gap: 6px;">
+                    <button class="card-icon-btn edit-transcript-btn" data-id="${clip.id}" title="Edit transcript & regenerate title">
+                      <i data-lucide="edit-3" class="lucide-sm"></i>
+                      Edit
+                    </button>
                     <button class="card-icon-btn copy-btn" data-transcript="${encodeURIComponent(clip.transcript || '')}">
                       <i data-lucide="copy" class="lucide-sm"></i>
                       Copy
                     </button>
-                    <button class="card-icon-btn single-transcribe-btn" data-id="${clip.id}">
+                    <button class="card-icon-btn single-transcribe-btn" data-id="${clip.id}" title="Re-transcribe">
                       <i data-lucide="refresh-cw" class="lucide-sm"></i>
                     </button>
                   </div>
@@ -2306,6 +2378,99 @@
     }
 
     function attachFeedCardEvents() {
+      // Transcript Inline Editing & Title Re-generation
+      document.querySelectorAll('.edit-transcript-btn, .transcript-text.editable').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = el.getAttribute('data-id');
+          const wrap = document.getElementById(`transcriptWrap-${id}`);
+          const clip = dispatches.find(d => String(d.id) === String(id));
+          if (!wrap || !clip) return;
+
+          wrap.innerHTML = `
+            <div class="transcript-editor-box" id="editor-${id}">
+              <textarea class="transcript-textarea" id="textarea-${id}" placeholder="Enter transcript text...">${escapeHtml(clip.transcript || '')}</textarea>
+              <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px;">
+                <button class="card-icon-btn cancel-edit-btn" data-id="${id}">Cancel</button>
+                <button class="btn btn-primary btn-sm save-edit-btn" data-id="${id}">
+                  <i data-lucide="sparkles" class="lucide-xs"></i> Save & Regenerate Title
+                </button>
+              </div>
+            </div>
+          `;
+          refreshLucideIcons();
+
+          const textarea = document.getElementById(`textarea-${id}`);
+          if (textarea) {
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+          }
+
+          const cancelBtn = wrap.querySelector('.cancel-edit-btn');
+          if (cancelBtn) {
+            cancelBtn.addEventListener('click', ev => {
+              ev.stopPropagation();
+              render();
+            });
+          }
+
+          const saveBtn = wrap.querySelector('.save-edit-btn');
+          if (saveBtn) {
+            saveBtn.addEventListener('click', async ev => {
+              ev.stopPropagation();
+              const newText = (textarea ? textarea.value : '').trim();
+              if (!newText) {
+                showToast('Transcript cannot be empty', 'error');
+                return;
+              }
+
+              saveBtn.disabled = true;
+              saveBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-xs spin-icon"></i> Regenerating...';
+              refreshLucideIcons();
+
+              clip.transcript = newText;
+              clip.transcribed = true;
+              clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+
+              showToast('Transcript updated! Regenerating AI title...', 'info');
+
+              // Automatically re-generate incident title and priority from edited text
+              const aiMeta = await generateAiTitleAndPriority(newText);
+              if (aiMeta) {
+                if (aiMeta.title) clip.metadata.title = aiMeta.title;
+                if (aiMeta.priority) clip.metadata.priority = aiMeta.priority;
+                showToast(`AI Title updated to "${aiMeta.title || ''}"!`, 'success');
+              } else {
+                showToast('Transcript updated!', 'success');
+              }
+
+              render();
+
+              if (supabaseClient) {
+                try {
+                  const { error } = await supabaseClient
+                    .from('dispatches')
+                    .update({
+                      transcript: newText,
+                      transcribed: true,
+                      metadata: clip.metadata
+                    })
+                    .eq('id', id);
+
+                  if (error) {
+                    await supabaseClient
+                      .from('dispatches')
+                      .update({ transcript: newText, transcribed: true })
+                      .eq('id', id);
+                  }
+                } catch (err) {
+                  console.error('Transcript update error:', err);
+                }
+              }
+            });
+          }
+        });
+      });
       // Call Title Inline Renaming
       document.querySelectorAll('.call-title-text, .call-rename-btn').forEach(el => {
         el.addEventListener('click', e => {

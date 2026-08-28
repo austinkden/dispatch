@@ -152,6 +152,93 @@ def render_dbfs_meter(dbfs: float, threshold: float, is_active: bool) -> str:
     return f"{state_color}[{meter_str}]{Colors.RESET} {val_str} {state_tag}"
 
 
+def detect_alert_tones(audio: AudioSegment) -> bool:
+    """
+    Detects the presence of emergency alert beeps / 3-tone bursts at the beginning
+    of an audio transmission clip (first ~2.5 seconds).
+    Handles fluctuating volume levels and radio static.
+    """
+    try:
+        if len(audio) < 400:
+            return False
+
+        # Analyze up to the first 2500ms
+        sample_audio = audio[:2500]
+        if sample_audio.dBFS < -55.0:
+            return False
+
+        sample_rate = sample_audio.frame_rate
+        raw_samples = sample_audio.get_array_of_samples()
+        total_samples = len(raw_samples)
+        if total_samples < 500:
+            return False
+
+        # Analyze in 25ms windows with 12ms step
+        window_size = int(sample_rate * 0.025)
+        step_size = int(sample_rate * 0.012)
+        num_windows = (total_samples - window_size) // step_size
+        if num_windows <= 0:
+            return False
+
+        peak_amplitude = max(abs(s) for s in raw_samples)
+        if peak_amplitude < 250:
+            return False
+
+        # Dynamic amplitude threshold relative to clip's initial peak
+        min_amp_thresh = max(350, peak_amplitude * 0.18)
+
+        tone_windows = []
+        for i in range(num_windows):
+            start = i * step_size
+            window = raw_samples[start : start + window_size]
+
+            win_peak = max(abs(s) for s in window)
+            if win_peak < min_amp_thresh:
+                tone_windows.append(False)
+                continue
+
+            # Zero-Crossing Rate (ZCR) for 700Hz - 2600Hz high-pitched alert tones
+            crossings = sum(1 for j in range(1, len(window)) if (window[j] >= 0 and window[j-1] < 0) or (window[j] < 0 and window[j-1] >= 0))
+            freq_est = (crossings / 2.0) / 0.025
+
+            if 650 <= freq_est <= 2700:
+                tone_windows.append(True)
+            else:
+                tone_windows.append(False)
+
+        # Count contiguous tone pulses separated by small gaps
+        pulse_count = 0
+        in_pulse = False
+        pulse_length = 0
+        gap_length = 0
+
+        for is_tone in tone_windows:
+            if is_tone:
+                if not in_pulse:
+                    in_pulse = True
+                    pulse_length = 1
+                else:
+                    pulse_length += 1
+                gap_length = 0
+            else:
+                if in_pulse:
+                    gap_length += 1
+                    # Gaps >= 3 windows (~36ms) end the pulse
+                    if gap_length >= 3:
+                        if 3 <= pulse_length <= 35: # 36ms to 420ms tone pulse
+                            pulse_count += 1
+                        in_pulse = False
+                        pulse_length = 0
+
+        if in_pulse and 3 <= pulse_length <= 35:
+            pulse_count += 1
+
+        # 2 to 5 distinct tone pulses indicate 3-beep alert tones
+        return 2 <= pulse_count <= 5
+    except Exception:
+        return False
+
+
 # ==============================================================================
 # Supabase Dispatch Uploader & Realtime Status Broadcaster
 # ==============================================================================
@@ -224,7 +311,7 @@ class DispatchUploader:
         except Exception:
             pass
 
-    def upload_clip(self, mp3_bytes: bytes, duration_sec: float) -> Optional[dict]:
+    def upload_clip(self, mp3_bytes: bytes, duration_sec: float, metadata: Optional[dict] = None) -> Optional[dict]:
         """Uploads .mp3 clip to Supabase Storage bucket and inserts a database row."""
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:8]
@@ -239,6 +326,7 @@ class DispatchUploader:
                 "duration": round(duration_sec, 2),
                 "transcribed": False,
                 "saved": False,
+                "metadata": metadata or {},
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
 
@@ -257,24 +345,29 @@ class DispatchUploader:
             # 3. Insert record into Supabase table
             payload = {
                 "audio_url": public_url,
+                "storage_path": storage_path,
                 "duration": round(duration_sec, 2),
                 "transcribed": False
             }
+            if metadata:
+                payload["metadata"] = metadata
             if self.has_saved_column:
                 payload["saved"] = False
 
             try:
                 db_res = self.client.table(self.table).insert(payload).execute()
             except Exception as insert_err:
-                if "saved" in str(insert_err):
+                err_str = str(insert_err)
+                if "metadata" in err_str:
+                    payload.pop("metadata", None)
+                if "saved" in err_str:
                     self.has_saved_column = False
                     payload.pop("saved", None)
-                    db_res = self.client.table(self.table).insert(payload).execute()
-                else:
-                    raise insert_err
+                db_res = self.client.table(self.table).insert(payload).execute()
 
             inserted_data = db_res.data[0] if db_res.data else payload
-            log("SAVED", f"Clip indexed: ID={inserted_data.get('id', 'ok')} | {public_url}", Colors.GREEN)
+            tones_tag = f" {Colors.HEADER}[TONES DETECTED]{Colors.RESET}" if metadata and metadata.get("has_tones") else ""
+            log("SAVED", f"Clip indexed: ID={inserted_data.get('id', 'ok')} | {public_url}{tones_tag}", Colors.GREEN)
             return inserted_data
 
         except Exception as e:
@@ -282,7 +375,7 @@ class DispatchUploader:
             return None
 
     def purge_expired_clips(self, days: int = RETENTION_DAYS):
-        """Backend Retention Job: Deletes clips older than 7 days unless explicitly saved."""
+        """Backend Retention Job: Deletes clips older than 7 days unless explicitly saved, and clears <=0.2s glitch clips."""
         if self.dry_run or not self.client:
             return
 
@@ -290,6 +383,19 @@ class DispatchUploader:
         log("RETENTION", f"Checking for unsaved clips older than {days} days (before {cutoff_date[:10]})...", Colors.BLUE)
 
         try:
+            # Also purge any legacy ultra-short glitch clips (<= 0.2s)
+            try:
+                short_res = self.client.table(self.table).select("id, audio_url, storage_path").lte("duration", 0.2).execute()
+                if short_res and short_res.data:
+                    short_paths = [c["storage_path"] for c in short_res.data if c.get("storage_path")]
+                    if short_paths:
+                        self.client.storage.from_(self.bucket).remove(short_paths)
+                    for c in short_res.data:
+                        self.client.table(self.table).delete().eq("id", c["id"]).execute()
+                    log("RETENTION", f"Purged {len(short_res.data)} glitch clips (<= 0.2s).", Colors.GREEN)
+            except Exception:
+                pass
+
             try:
                 expired_res = self.client.table(self.table).select("id, audio_url, created_at").lt("created_at", cutoff_date).eq("saved", False).execute()
             except Exception as query_err:
@@ -461,7 +567,9 @@ class StreamSlicer:
             daemon=True
         ).start()
 
-        if total_duration < self.min_clip_duration_sec:
+        if total_duration <= 0.2:
+            log("IGNORED", f"Clip discarded (duration {total_duration:.2f}s <= 0.2s ultra-short audio)", Colors.DIM)
+        elif total_duration < self.min_clip_duration_sec:
             log("IGNORED", f"Clip discarded (duration {total_duration:.2f}s < minimum {self.min_clip_duration_sec:.1f}s)", Colors.DIM)
         else:
             try:
@@ -469,12 +577,20 @@ class StreamSlicer:
                 for seg in self.active_buffer:
                     combined_audio += seg
 
+                # Tone / 3-Beep Alert Detection
+                has_tones = detect_alert_tones(combined_audio)
+                clip_metadata = {}
+                if has_tones:
+                    clip_metadata["has_tones"] = True
+                    clip_metadata["tones"] = True
+                    log("TONES", "🚨 3-beep emergency alert tones detected!", Colors.HEADER)
+
                 mp3_io = io.BytesIO()
                 combined_audio.export(mp3_io, format="mp3", bitrate="64k", parameters=["-ac", "1", "-ar", "22050"])
                 mp3_bytes = mp3_io.getvalue()
 
-                # Upload to Supabase
-                self.uploader.upload_clip(mp3_bytes, total_duration)
+                # Upload to Supabase with tone metadata
+                self.uploader.upload_clip(mp3_bytes, total_duration, metadata=clip_metadata)
 
             except Exception as e:
                 log("ERROR", f"Failed to encode or upload audio clip: {e}", Colors.RED)
