@@ -405,8 +405,8 @@ class StreamSlicer:
                 # Continuous silence: maintain rolling pre-roll buffer
                 self.pre_roll_buffer.append(chunk_segment)
 
-                # Send idle monitoring heartbeat every 2.5 seconds
-                if now - self.last_heartbeat_time >= 2.5:
+                # Send idle monitoring heartbeat every 1.0 second
+                if now - self.last_heartbeat_time >= 1.0:
                     self.last_heartbeat_time = now
                     threading.Thread(
                         target=self.uploader.broadcast_status,
@@ -424,8 +424,8 @@ class StreamSlicer:
             else:
                 self.consecutive_silence_sec += chunk_sec
 
-            # Broadcast recording duration progress
-            if now - self.last_record_broadcast_time >= 0.8:
+            # Broadcast recording duration progress every 0.4s
+            if now - self.last_record_broadcast_time >= 0.4:
                 self.last_record_broadcast_time = now
                 threading.Thread(
                     target=self.uploader.broadcast_status,

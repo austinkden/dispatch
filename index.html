@@ -1643,10 +1643,10 @@
       if (heartbeatCheckTimer) clearInterval(heartbeatCheckTimer);
       heartbeatCheckTimer = setInterval(() => {
         const elapsed = (Date.now() - lastHeartbeatTimestamp) / 1000;
-        if (lastHeartbeatTimestamp === 0 || elapsed > 8) {
+        if (lastHeartbeatTimestamp === 0 || elapsed > 3.0) {
           setAudioStatus('OFFLINE');
         }
-      }, 3000);
+      }, 1000);
     }
 
     // ==============================================================================
