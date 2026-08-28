@@ -1677,20 +1677,6 @@
           </div>
           <input type="password" id="cfgGeminiApiKey" class="form-input" placeholder="AIzaSy..." />
         </div>
-
-        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--outline-variant);">
-          <label class="form-label" style="color: #f87171; display: flex; align-items: center; gap: 5px;">
-            <i data-lucide="alert-triangle" class="lucide-xs"></i>
-            Danger Zone
-          </label>
-          <p style="font-size: 11.5px; color: var(--on-surface-variant); margin-bottom: 10px; line-height: 1.4;">
-            Permanently delete all audio transmissions and transcripts from both database and storage.
-          </p>
-          <button class="btn btn-danger btn-sm" id="deleteAllDispatchesBtn" style="width: 100%; justify-content: center;">
-            <i data-lucide="trash-2" class="lucide-sm"></i>
-            Delete All Transcripts & Dispatches
-          </button>
-        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-tonal" id="cancelSettingsBtn">Cancel</button>
@@ -3181,7 +3167,6 @@
       document.getElementById('closeSettingsBtn').addEventListener('click', closeModal);
       document.getElementById('cancelSettingsBtn').addEventListener('click', closeModal);
       document.getElementById('saveSettingsBtn').addEventListener('click', saveConfig);
-      document.getElementById('deleteAllDispatchesBtn').addEventListener('click', deleteAllDispatches);
 
       document.getElementById('settingsModal').addEventListener('click', e => {
         if (e.target.id === 'settingsModal') closeModal();
