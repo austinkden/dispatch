@@ -2509,6 +2509,24 @@
           </span>
         </div>
 
+        <div class="form-group" style="background: var(--surface-variant); padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--outline);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <label class="form-label" style="margin-bottom: 2px; font-weight: 700; cursor: pointer;" for="cfgAutoTranscribeTones">
+                <i data-lucide="bell" class="lucide-xs" style="color: #fb7185; margin-right: 4px;"></i>
+                Auto-Transcribe Alert Tones
+              </label>
+              <span style="font-size: 11px; color: var(--on-surface-variant); display: block;">
+                Automatically transcribe & title incoming transmissions when emergency alert tones (3-beep bursts) are detected.
+              </span>
+            </div>
+            <label class="m3-checkbox" style="margin-left: 12px;">
+              <input type="checkbox" id="cfgAutoTranscribeTones" checked />
+              <span class="checkbox-box"></span>
+            </label>
+          </div>
+        </div>
+
         <div class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <label class="form-label" style="margin-bottom: 0;">Cloudflare Proxy URL (Bypass School/Network Firewall)</label>
@@ -2604,7 +2622,8 @@
       groqApiKey: '',
       geminiApiKey: '',
       proxyUrl: '',
-      defaultSpeed: '1.0'
+      defaultSpeed: '1.0',
+      autoTranscribeTones: true
     };
 
     let supabaseClient = null;
@@ -2805,6 +2824,10 @@
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
       document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey || '';
       document.getElementById('cfgProxyUrl').value = config.proxyUrl || '';
+      const autoTonesToggle = document.getElementById('cfgAutoTranscribeTones');
+      if (autoTonesToggle) {
+        autoTonesToggle.checked = config.autoTranscribeTones !== false;
+      }
       const speedSelect = document.getElementById('cfgDefaultSpeed');
       if (speedSelect) {
         speedSelect.value = config.defaultSpeed || '1.0';
@@ -2813,6 +2836,16 @@
       // Gracefully sync keys from backend database if available
       if (supabaseClient) {
         try {
+          const { data: tonesData } = await supabaseClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'auto_transcribe_tones')
+            .maybeSingle();
+
+          if (tonesData && tonesData.value !== undefined) {
+            config.autoTranscribeTones = tonesData.value === 'true' || tonesData.value === true;
+            if (autoTonesToggle) autoTonesToggle.checked = config.autoTranscribeTones;
+          }
           const { data: groqData } = await supabaseClient
             .from('app_config')
             .select('value')
@@ -2870,6 +2903,10 @@
       config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
       config.geminiApiKey = document.getElementById('cfgGeminiApiKey').value.trim();
       config.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
+      const autoTonesToggle = document.getElementById('cfgAutoTranscribeTones');
+      if (autoTonesToggle) {
+        config.autoTranscribeTones = autoTonesToggle.checked;
+      }
       const speedSelect = document.getElementById('cfgDefaultSpeed');
       if (speedSelect) {
         config.defaultSpeed = speedSelect.value;
@@ -2884,6 +2921,11 @@
       // Persist API keys to Supabase backend app_config table
       if (supabaseClient) {
         try {
+          await supabaseClient.from('app_config').upsert({
+            key: 'auto_transcribe_tones',
+            value: String(config.autoTranscribeTones),
+            updated_at: new Date().toISOString()
+          });
           if (config.groqApiKey) {
             await supabaseClient.from('app_config').upsert({
               key: 'groq_api_key',
@@ -3063,6 +3105,13 @@
             showToast(`New transmission slice saved (${payload.new.duration}s)`, 'info');
             dispatches.unshift(payload.new);
             render();
+
+            // Auto-transcribe incoming clips with alert tones if enabled in settings
+            const meta = (typeof payload.new.metadata === 'object' && payload.new.metadata !== null) ? payload.new.metadata : {};
+            const hasTones = !!(meta.has_tones || meta.tones || payload.new.has_tones);
+            if (hasTones && config.autoTranscribeTones && !payload.new.transcribed) {
+              transcribeClips([String(payload.new.id)]);
+            }
           }
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dispatches' }, payload => {
@@ -3873,6 +3922,11 @@
             } catch (err) {
               console.error('Tones update error:', err);
             }
+          }
+
+          // If auto-transcribe tones is enabled and clip is not yet transcribed, trigger transcription
+          if (newTones && config.autoTranscribeTones && !clip.transcribed && !clip.transcribing) {
+            transcribeClips([String(id)]);
           }
         });
       });
