@@ -375,9 +375,10 @@ class StreamSlicer:
         is_speech = chunk_dbfs >= self.silence_threshold
         now = time.time()
 
-        # Print live terminal energy meter on single updating line
-        sys.stdout.write(f"\r{render_dbfs_meter(chunk_dbfs, self.silence_threshold, self.is_transmitting)}   ")
-        sys.stdout.flush()
+        # Print live terminal energy meter on single updating line in TTY mode
+        if sys.stdout.isatty():
+            sys.stdout.write(f"\r{render_dbfs_meter(chunk_dbfs, self.silence_threshold, self.is_transmitting)}   ")
+            sys.stdout.flush()
 
         if not self.is_transmitting:
             # IDLE / LISTENING STATE

@@ -81,3 +81,29 @@ CREATE POLICY "Allow Updates to dispatch-clips"
 CREATE POLICY "Allow Deletes to dispatch-clips"
     ON storage.objects FOR DELETE
     USING (bucket_id = 'dispatch-clips');
+
+-- ==============================================================================
+-- 6. Server-Side Dashboard Passcode Authentication (RPC)
+-- ==============================================================================
+-- Enables server-side authentication so plaintext passwords are never stored in client code.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE OR REPLACE FUNCTION public.verify_dashboard_passcode(candidate_passcode TEXT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    -- SHA-256 hash of 'livedispatch'
+    expected_hash TEXT := 'cbe1190a222aeea42cb0c186cfc710016bc458ce7ae32a4a04cd5d75f8d345f5';
+BEGIN
+    IF candidate_passcode IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    RETURN encode(digest(candidate_passcode, 'sha256'), 'hex') = expected_hash;
+END;
+$$;
+
+-- Grant execute permissions to anon and authenticated roles for dashboard login
+GRANT EXECUTE ON FUNCTION public.verify_dashboard_passcode(TEXT) TO anon, authenticated;
+

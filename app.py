@@ -69,8 +69,21 @@ listener_thread.start()
 
 
 # ==============================================================================
-# Hugging Face Gradio Status Interface
+# Hugging Face ZeroGPU & Gradio Status Interface
 # ==============================================================================
+try:
+    import spaces
+    GPU_DECORATOR = spaces.GPU
+except Exception:
+    def GPU_DECORATOR(fn=None, **kwargs):
+        if fn is not None:
+            return fn
+        def decorator(f):
+            return f
+        return decorator
+
+
+@GPU_DECORATOR
 def get_worker_status_markdown():
     return f"""
 ### 🟢 Trace Dispatch Slicer is Active (24/7 Cloud Worker)
@@ -92,9 +105,8 @@ with gr.Blocks(title="Trace Dispatch - 24/7 Cloud Worker") as demo:
     refresh_btn = gr.Button("🔄 Refresh Status")
     refresh_btn.click(fn=get_worker_status_markdown, outputs=status_output)
 
-# Launch Gradio with SSR mode disabled to prevent Node.js proxy exits
+# Launch Gradio server
 demo.launch(
     server_name="0.0.0.0",
-    server_port=7860,
-    ssr_mode=False
+    server_port=7860
 )

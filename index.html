@@ -208,6 +208,14 @@
       40%, 60% { transform: translate3d(6px, 0, 0); }
     }
 
+    .spin-icon {
+      animation: spin-anim 1s linear infinite;
+    }
+    @keyframes spin-anim {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     /* ==============================================================================
        TOP CONTROLS BAR & LIVE RECORDING STATUS
        ============================================================================== */
@@ -1057,7 +1065,7 @@
       <form class="auth-form" id="authForm">
         <input type="password" id="authPassword" class="auth-input" placeholder="Enter Access Password" autofocus autocomplete="current-password" />
         <div class="auth-error" id="authError">Incorrect Password. Try again.</div>
-        <button type="submit" class="btn btn-primary auth-btn" style="justify-content: center;">
+        <button type="submit" class="btn btn-primary auth-btn" id="unlockBtn" style="justify-content: center;">
           <i data-lucide="unlock" class="lucide-sm"></i>
           Unlock Console
         </button>
@@ -1255,7 +1263,6 @@
   <script>
     const STORAGE_KEY_CONFIG = 'trace_dispatch_config';
     const STORAGE_KEY_AUTH = 'trace_dispatch_authenticated';
-    const AUTH_PASSWORD = 'welcome';
     const DEFAULT_GROQ_MODEL = 'whisper-large-v3-turbo';
 
     let config = {
@@ -1277,9 +1284,13 @@
     let heartbeatCheckTimer = null;
 
     // ==============================================================================
-    // AUTHENTICATION
+    // AUTHENTICATION (Server-Side Verified via Supabase RPC)
     // ==============================================================================
     function checkAuth() {
+      loadConfig();
+      if (!supabaseClient) {
+        initSupabase();
+      }
       const isAuth = sessionStorage.getItem(STORAGE_KEY_AUTH) === 'true' || localStorage.getItem(STORAGE_KEY_AUTH) === 'true';
       if (isAuth) {
         unlockApp();
@@ -1291,22 +1302,71 @@
       }
     }
 
-    function handleAuthSubmit(e) {
+    async function handleAuthSubmit(e) {
       e.preventDefault();
-      const pwd = document.getElementById('authPassword').value;
+      const pwdInput = document.getElementById('authPassword');
+      const pwd = pwdInput.value;
       const errEl = document.getElementById('authError');
       const cardEl = document.getElementById('authCard');
+      const unlockBtn = document.getElementById('unlockBtn');
 
-      if (pwd === AUTH_PASSWORD) {
-        sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
-        localStorage.setItem(STORAGE_KEY_AUTH, 'true');
-        unlockApp();
-      } else {
+      if (!pwd) return;
+
+      if (!supabaseClient) {
+        initSupabase();
+      }
+
+      if (!supabaseClient) {
+        errEl.textContent = 'Supabase connection not initialized. Please verify configuration.';
         errEl.style.display = 'block';
-        cardEl.classList.remove('shake');
-        void cardEl.offsetWidth;
-        cardEl.classList.add('shake');
-        document.getElementById('authPassword').select();
+        return;
+      }
+
+      const originalBtnHtml = unlockBtn ? unlockBtn.innerHTML : '';
+      if (unlockBtn) {
+        unlockBtn.disabled = true;
+        unlockBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Verifying...';
+        refreshLucideIcons();
+      }
+
+      try {
+        const { data: isValid, error } = await supabaseClient.rpc('verify_dashboard_passcode', {
+          candidate_passcode: pwd
+        });
+
+        if (error) {
+          console.error('Server auth error:', error);
+          errEl.textContent = 'Server error during authentication. Ensure schema.sql is executed.';
+          errEl.style.display = 'block';
+          cardEl.classList.remove('shake');
+          void cardEl.offsetWidth;
+          cardEl.classList.add('shake');
+          return;
+        }
+
+        if (isValid === true) {
+          sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
+          localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+          errEl.style.display = 'none';
+          unlockApp();
+        } else {
+          errEl.textContent = 'Incorrect Password. Try again.';
+          errEl.style.display = 'block';
+          cardEl.classList.remove('shake');
+          void cardEl.offsetWidth;
+          cardEl.classList.add('shake');
+          pwdInput.select();
+        }
+      } catch (err) {
+        console.error('Auth request failed:', err);
+        errEl.textContent = 'Network error verifying passcode.';
+        errEl.style.display = 'block';
+      } finally {
+        if (unlockBtn) {
+          unlockBtn.disabled = false;
+          unlockBtn.innerHTML = originalBtnHtml;
+          refreshLucideIcons();
+        }
       }
     }
 
