@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS public.dispatches (
     metadata JSONB DEFAULT '{}'::jsonb
 );
 
--- Migration query if you already created the table without the 'saved' column:
+-- Migration query if you already created the table without the 'saved' or 'metadata' columns:
 ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS saved BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.dispatches ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;
 
 -- 2. Create indices for high-performance queries, real-time indexing, and retention purges
 CREATE INDEX IF NOT EXISTS idx_dispatches_created_at ON public.dispatches (created_at DESC);

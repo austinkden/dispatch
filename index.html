@@ -2727,14 +2727,29 @@
           }
 
           if (supabaseClient) {
-            await supabaseClient
-              .from('dispatches')
-              .update({
-                transcript: transcriptText,
-                transcribed: true,
-                metadata: clip.metadata
-              })
-              .eq('id', id);
+            try {
+              const { error } = await supabaseClient
+                .from('dispatches')
+                .update({
+                  transcript: transcriptText,
+                  transcribed: true,
+                  metadata: clip.metadata
+                })
+                .eq('id', id);
+
+              if (error) {
+                console.warn('Metadata column update error, falling back to basic transcript update:', error.message);
+                await supabaseClient
+                  .from('dispatches')
+                  .update({
+                    transcript: transcriptText,
+                    transcribed: true
+                  })
+                  .eq('id', id);
+              }
+            } catch (dbErr) {
+              console.warn('Database save error:', dbErr);
+            }
           }
 
           showToast(`Transcribed & Auto-Titled #${id}!`, 'success');
@@ -2752,44 +2767,54 @@
     }
 
     async function generateAiTitleAndPriority(transcript) {
-      if (!config.groqApiKey || !transcript || transcript.length < 5) return null;
-      try {
-        const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.groqApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are an expert emergency dispatch radio analyst. Given a police/fire/EMS radio transmission transcript, generate a short incident title (2 to 5 words, e.g. "Structure Fire - Main St", "Traffic Stop Unit 4", "Medical Emergency Code 3", "Suspicious Vehicle", "Routine Radio Check") and a priority level from 1 (critical/emergency) to 5 (routine/info). Return strictly a JSON object with keys "title" (string) and "priority" (number 1-5).'
-              },
-              {
-                role: 'user',
-                content: transcript
-              }
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.1,
-            max_tokens: 120
-          })
-        });
+      if (!config.groqApiKey || !transcript || transcript.length < 3) return null;
+      
+      const candidateModels = ['llama-3.3-70b-versatile', 'llama3-8b-8192', 'llama-3.1-8b-instant'];
+      
+      for (const model of candidateModels) {
+        try {
+          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${config.groqApiKey.trim()}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are an emergency radio dispatcher. Summarize the radio transcript into a concise incident title (2 to 5 words, e.g. "Structure Fire - Main St", "Traffic Stop Unit 4", "Medical Emergency Code 3", "Suspicious Vehicle", "Routine Radio Check") and assign a priority number 1-5 (1: critical/code 3, 2: high incident, 3: medium, 4: routine, 5: low/info). Output valid JSON format: {"title": "...", "priority": 1-5}. No extra text.'
+                },
+                {
+                  role: 'user',
+                  content: transcript
+                }
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.1,
+              max_tokens: 100
+            })
+          });
 
-        if (!resp.ok) return null;
-        const data = await resp.json();
-        const rawContent = data.choices?.[0]?.message?.content;
-        if (rawContent) {
-          const parsed = JSON.parse(rawContent);
-          return {
-            title: parsed.title ? String(parsed.title).trim() : null,
-            priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
-          };
+          if (!resp.ok) {
+            const errData = await resp.text();
+            console.warn(`Groq chat model ${model} status ${resp.status}:`, errData);
+            continue;
+          }
+
+          const data = await resp.json();
+          const rawContent = data.choices?.[0]?.message?.content;
+          if (rawContent) {
+            const parsed = JSON.parse(rawContent);
+            return {
+              title: parsed.title ? String(parsed.title).trim() : null,
+              priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
+            };
+          }
+        } catch (err) {
+          console.warn(`AI titling error with ${model}:`, err);
         }
-      } catch (err) {
-        console.warn('AI titling warning:', err);
       }
       return null;
     }
