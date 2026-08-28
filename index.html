@@ -1830,6 +1830,91 @@
     .m3-toast.info { border-left: 3px solid var(--primary); }
 
     /* ==============================================================================
+       MULTI-ACTION PROGRESS BAR & FLOATING PROGRESS WIDGET
+       ============================================================================== */
+    .batch-progress-widget {
+      display: none;
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 440px);
+      background: rgba(22, 19, 28, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--primary);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 24px rgba(192, 132, 252, 0.18);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      z-index: 9999;
+      animation: progress-pop-down 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes progress-pop-down {
+      from { opacity: 0; transform: translate(-50%, -20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    .batch-progress-widget.active {
+      display: block;
+    }
+    .progress-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .progress-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--on-surface);
+    }
+    .progress-title-wrap i, .progress-title-wrap svg {
+      color: var(--primary);
+    }
+    .progress-numbers-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      background: rgba(192, 132, 252, 0.12);
+      border: 1px solid rgba(192, 132, 252, 0.25);
+      border-radius: var(--radius-full);
+      padding: 2px 9px;
+      font-variant-numeric: tabular-nums;
+    }
+    .progress-track {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0 6px;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #c084fc, #a855f7, #38bdf8);
+      border-radius: 4px;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 10px rgba(192, 132, 252, 0.5);
+    }
+    .progress-detail-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--on-surface-variant);
+    }
+    .progress-item-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 75%;
+    }
+
+    /* ==============================================================================
        MOBILE FIRST RESPONSIVE ENHANCEMENTS
        ============================================================================== */
     .mobile-bottom-nav {
@@ -2070,7 +2155,7 @@
         <span>&bull;</span>
         <span>Supabase Storage</span>
         <span>&bull;</span>
-        <span>Groq Whisper AI</span>
+        <span>Groq AI Transcription</span>
       </div>
     </header>
 
@@ -2381,7 +2466,7 @@
           <input type="password" id="cfgSupabaseAnonKey" class="form-input" />
         </div>
         <div class="form-group">
-          <label class="form-label">Groq API Key (Whisper Audio Transcription)</label>
+          <label class="form-label">Groq API Key (AI Audio Transcription)</label>
           <input type="password" id="cfgGroqApiKey" class="form-input" />
         </div>
 
@@ -2393,6 +2478,23 @@
             </a>
           </div>
           <input type="password" id="cfgGeminiApiKey" class="form-input" placeholder="AIzaSy..." />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Default Audio Playback Speed</label>
+          <select id="cfgDefaultSpeed" class="form-input" style="cursor: pointer;">
+            <option value="0.5">0.5x (Slow)</option>
+            <option value="1.0" selected>1.0x (Normal Speed)</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x (Fast)</option>
+            <option value="1.75">1.75x</option>
+            <option value="2.0">2.0x (Double Speed)</option>
+            <option value="3.0">3.0x</option>
+            <option value="4.0">4.0x (Rapid Scan)</option>
+          </select>
+          <span style="font-size: 11px; color: var(--on-surface-variant); margin-top: 4px; display: block;">
+            Preset playback speed applied to all audio dispatch players automatically.
+          </span>
         </div>
 
         <div class="form-group">
@@ -2455,6 +2557,24 @@
     </button>
   </nav>
 
+  <!-- Global Floating Multi-Action Progress Indicator Widget -->
+  <div class="batch-progress-widget" id="batchProgressWidget">
+    <div class="progress-top-row">
+      <div class="progress-title-wrap">
+        <i data-lucide="loader-2" class="lucide-sm spin-icon" id="progressIcon"></i>
+        <span id="progressTitle">Transcribing Dispatches</span>
+      </div>
+      <span class="progress-numbers-badge" id="progressNumbersBadge">0 / 0 · 0%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFillBar"></div>
+    </div>
+    <div class="progress-detail-row">
+      <span class="progress-item-text" id="progressDetailText">Preparing action...</span>
+      <span id="progressPercentText">0%</span>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -2471,7 +2591,8 @@
       supabaseAnonKey: 'sb_publishable_1jzfgBYw-Ix38_IYqccQbQ_XpJ5jJW1',
       groqApiKey: '',
       geminiApiKey: '',
-      proxyUrl: ''
+      proxyUrl: '',
+      defaultSpeed: '1.0'
     };
 
     let supabaseClient = null;
@@ -2672,6 +2793,10 @@
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
       document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey || '';
       document.getElementById('cfgProxyUrl').value = config.proxyUrl || '';
+      const speedSelect = document.getElementById('cfgDefaultSpeed');
+      if (speedSelect) {
+        speedSelect.value = config.defaultSpeed || '1.0';
+      }
 
       // Gracefully sync keys from backend database if available
       if (supabaseClient) {
@@ -2709,6 +2834,17 @@
             document.getElementById('cfgProxyUrl').value = proxyData.value;
           }
 
+          const { data: speedData } = await supabaseClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'default_speed')
+            .maybeSingle();
+
+          if (speedData && speedData.value) {
+            config.defaultSpeed = speedData.value;
+            if (speedSelect) speedSelect.value = speedData.value;
+          }
+
           localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
         } catch (err) {
           // Table may not be created yet, fallback to localStorage
@@ -2722,11 +2858,16 @@
       config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
       config.geminiApiKey = document.getElementById('cfgGeminiApiKey').value.trim();
       config.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
+      const speedSelect = document.getElementById('cfgDefaultSpeed');
+      if (speedSelect) {
+        config.defaultSpeed = speedSelect.value;
+      }
 
       localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
       showToast('Settings saved!', 'success');
       closeModal();
       initSupabase();
+      render();
 
       // Persist API keys to Supabase backend app_config table
       if (supabaseClient) {
@@ -2752,6 +2893,13 @@
               updated_at: new Date().toISOString()
             });
           }
+          if (config.defaultSpeed) {
+            await supabaseClient.from('app_config').upsert({
+              key: 'default_speed',
+              value: config.defaultSpeed,
+              updated_at: new Date().toISOString()
+            });
+          }
         } catch (err) {
           // Table may not exist yet in Supabase
         }
@@ -2769,6 +2917,79 @@
         return `${cleanProxy}?url=${encodeURIComponent(targetUrl)}`;
       }
       return `${cleanProxy}/${targetUrl}`;
+    }
+
+    // ==============================================================================
+    // MULTI-ACTION PROGRESS INDICATOR MANAGER
+    // ==============================================================================
+    function updateProgress(title, current, total, detail = '') {
+      const widget = document.getElementById('batchProgressWidget');
+      const titleEl = document.getElementById('progressTitle');
+      const badgeEl = document.getElementById('progressNumbersBadge');
+      const fillEl = document.getElementById('progressFillBar');
+      const detailEl = document.getElementById('progressDetailText');
+      const pctEl = document.getElementById('progressPercentText');
+      const iconEl = document.getElementById('progressIcon');
+
+      if (!widget) return;
+
+      if (total <= 0) {
+        widget.classList.remove('active');
+        return;
+      }
+
+      const percent = Math.min(100, Math.max(0, Math.round((current / total) * 100)));
+
+      if (titleEl) titleEl.textContent = title || 'Processing Dispatches...';
+      if (badgeEl) badgeEl.textContent = `${current} of ${total} · ${percent}%`;
+      if (fillEl) fillEl.style.width = `${percent}%`;
+      if (detailEl) detailEl.textContent = detail || `Item ${current} of ${total}`;
+      if (pctEl) pctEl.textContent = `${percent}%`;
+
+      if (iconEl) {
+        if (current >= total && percent >= 100) {
+          iconEl.setAttribute('data-lucide', 'check-circle-2');
+          iconEl.classList.remove('spin-icon');
+        } else {
+          iconEl.setAttribute('data-lucide', 'loader-2');
+          iconEl.classList.add('spin-icon');
+        }
+      }
+
+      widget.classList.add('active');
+      refreshLucideIcons();
+    }
+
+    function completeProgress(title, summary = 'Completed!', delayMs = 1800) {
+      const widget = document.getElementById('batchProgressWidget');
+      const titleEl = document.getElementById('progressTitle');
+      const badgeEl = document.getElementById('progressNumbersBadge');
+      const fillEl = document.getElementById('progressFillBar');
+      const detailEl = document.getElementById('progressDetailText');
+      const pctEl = document.getElementById('progressPercentText');
+      const iconEl = document.getElementById('progressIcon');
+
+      if (!widget) return;
+
+      if (titleEl) titleEl.textContent = title || 'Action Complete';
+      if (badgeEl) badgeEl.textContent = '100%';
+      if (fillEl) fillEl.style.width = '100%';
+      if (detailEl) detailEl.textContent = summary;
+      if (pctEl) pctEl.textContent = '100%';
+      if (iconEl) {
+        iconEl.setAttribute('data-lucide', 'check-circle-2');
+        iconEl.classList.remove('spin-icon');
+      }
+      refreshLucideIcons();
+
+      setTimeout(() => {
+        widget.classList.remove('active');
+      }, delayMs);
+    }
+
+    function hideProgress() {
+      const widget = document.getElementById('batchProgressWidget');
+      if (widget) widget.classList.remove('active');
     }
 
     function initSupabase() {
@@ -3288,6 +3509,14 @@
       let tonesBadge = hasTones ? `<span class="badge-pill tones" title="3-beep alert tones detected at start of clip"><i data-lucide="bell" class="lucide-xs"></i> Tones</span>` : '';
       let savedBadge = isSaved ? `<span class="badge-pill saved"><i data-lucide="bookmark" class="lucide-sm"></i> Saved</span>` : '';
 
+      const isManualTranscript = !!(meta.manual_transcript || meta.transcription_source === 'manual');
+      const transcriptTitleLabel = isManualTranscript ? 'Manual Transcript' : 'AI Transcript';
+      const transcriptTitleIcon = isManualTranscript ? 'edit-3' : 'sparkles';
+
+      const defaultSpeed = parseFloat(config.defaultSpeed || '1.0');
+      const clipSpeed = parseFloat(clip.playbackRate || defaultSpeed);
+      const speedStr = `${(clipSpeed % 1 === 0) ? clipSpeed.toFixed(0) : clipSpeed.toFixed(1)}x`;
+
       let transcriptContent = '';
       if (clip.transcribing) {
         transcriptContent = `
@@ -3308,11 +3537,11 @@
             <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px;">
               <button class="btn btn-amber btn-sm single-transcribe-btn" data-id="${clip.id}">
                 <i data-lucide="sparkles" class="lucide-sm"></i>
-                Transcribe AI
+                AI Transcribe
               </button>
               <button class="btn btn-tonal btn-sm single-manual-transcribe-btn" data-id="${clip.id}">
                 <i data-lucide="edit-3" class="lucide-sm"></i>
-                Manual Transcribe
+                Manual
               </button>
             </div>
           </div>
@@ -3393,15 +3622,18 @@
               <div class="audio-bottom-bar">
                 <div class="speed-selector-wrap" id="speedWrap-${clip.id}">
                   <button class="speed-chip" data-audio-id="audio-${clip.id}" data-id="${clip.id}" title="Playback speed">
-                    <span class="speed-val" id="speedVal-${clip.id}">1.0x</span>
+                    <span class="speed-val" id="speedVal-${clip.id}">${speedStr}</span>
                     <i data-lucide="chevron-down" class="lucide-xs"></i>
                   </button>
                   <div class="speed-dropdown-menu" id="speedMenu-${clip.id}">
-                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="0.5">0.5x</button>
-                    <button class="speed-opt active" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.0">1.0x</button>
-                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.5">1.5x</button>
-                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="2.0">2.0x</button>
-                    <button class="speed-opt" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="4.0">4.0x</button>
+                    <button class="speed-opt ${clipSpeed === 0.5 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="0.5">0.5x</button>
+                    <button class="speed-opt ${clipSpeed === 1.0 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.0">1.0x</button>
+                    <button class="speed-opt ${clipSpeed === 1.25 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.25">1.25x</button>
+                    <button class="speed-opt ${clipSpeed === 1.5 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.5">1.5x</button>
+                    <button class="speed-opt ${clipSpeed === 1.75 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="1.75">1.75x</button>
+                    <button class="speed-opt ${clipSpeed === 2.0 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="2.0">2.0x</button>
+                    <button class="speed-opt ${clipSpeed === 3.0 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="3.0">3.0x</button>
+                    <button class="speed-opt ${clipSpeed === 4.0 ? 'active' : ''}" data-audio-id="audio-${clip.id}" data-id="${clip.id}" data-speed="4.0">4.0x</button>
                   </div>
                 </div>
                 <button class="download-link single-download-btn" data-id="${clip.id}" title="Download MP3 audio">
@@ -3415,8 +3647,8 @@
             <div class="transcript-box">
               <div class="transcript-top">
                 <span class="transcript-title">
-                  <i data-lucide="sparkles" class="lucide-sm"></i>
-                  Whisper Transcript
+                  <i data-lucide="${transcriptTitleIcon}" class="lucide-sm"></i>
+                  ${transcriptTitleLabel}
                 </span>
                 ${clip.transcribed ? `
                   <div style="display: flex; align-items: center; gap: 6px;">
@@ -3720,6 +3952,9 @@
       }
 
       const total = ids.length;
+      if (total > 1) {
+        updateProgress('Deleting Dispatches', 0, total, `Removing ${total} selected dispatches...`);
+      }
       showToast(`Deleting ${total} dispatch${total > 1 ? 'es' : ''}...`, 'info');
 
       try {
@@ -3758,10 +3993,15 @@
         dispatches = dispatches.filter(d => !ids.includes(String(d.id)));
         ids.forEach(id => selectedIds.delete(id));
         render();
+
+        if (total > 1) {
+          completeProgress('Deletion Complete', `Deleted ${total} dispatches from storage and SQL database.`, 1600);
+        }
         showToast(`Deleted ${total} dispatch${total > 1 ? 'es' : ''} from database.`, 'success');
       } catch (err) {
         console.error('Database deletion failed:', err);
         showToast('Failed to delete from database: ' + err.message, 'error');
+        hideProgress();
       }
     }
 
@@ -3785,6 +4025,7 @@
         refreshLucideIcons();
       }
 
+      updateProgress('Purging Database', 0, total, `Deleting all ${total} dispatches...`);
       showToast(`Deleting all ${total} dispatches...`, 'info');
 
       try {
@@ -3815,10 +4056,12 @@
         selectedIds.clear();
         render();
         closeModal();
+        completeProgress('Database Reset', `Purged all ${total} dispatches.`, 2000);
         showToast(`Successfully deleted all ${total} dispatches from SQL.`, 'success');
       } catch (err) {
         console.error('Delete all error:', err);
         showToast('Failed to delete all dispatches: ' + err.message, 'error');
+        hideProgress();
       } finally {
         if (deleteBtn) {
           deleteBtn.disabled = false;
@@ -3911,13 +4154,16 @@
         return;
       }
 
+      const total = ids.length;
+      updateProgress('Packaging ZIP Archive', 0, total, `Packaging ${total} audio recordings into ZIP...`);
+
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Packaging...';
+        btn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Packaging 0%...';
       }
       if (mBtn) {
         mBtn.disabled = true;
-        mBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Packaging...';
+        mBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Packaging 0%...';
       }
       refreshLucideIcons();
 
@@ -3927,7 +4173,8 @@
           const folder = zip.folder("dispatch_audio_clips");
 
           let completed = 0;
-          for (const id of ids) {
+          for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
             const clip = dispatches.find(d => String(d.id) === String(id));
             if (!clip) continue;
             try {
@@ -3936,15 +4183,21 @@
               const timeStr = createdDate.toISOString().replace(/[:.]/g, '-').slice(0, 19);
               folder.file(`dispatch_${clip.id}_${timeStr}.mp3`, blob);
               completed++;
+              const pct = Math.round((completed / total) * 100);
+              updateProgress('Packaging ZIP Archive', completed, total, `Packaged recording #${id} (${completed}/${total})`);
               if (btn) {
-                btn.innerHTML = `<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> ${completed}/${ids.length}`;
-                refreshLucideIcons();
+                btn.innerHTML = `<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> ${completed}/${total} (${pct}%)`;
               }
+              if (mBtn) {
+                mBtn.innerHTML = `<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> ${completed}/${total} (${pct}%)`;
+              }
+              refreshLucideIcons();
             } catch (fErr) {
               console.warn(`Failed to package audio clip ${id}:`, fErr);
             }
           }
 
+          updateProgress('Creating Archive', total, total, 'Compressing ZIP archive...');
           const zipBlob = await zip.generateAsync({ type: "blob" });
           const blobUrl = URL.createObjectURL(zipBlob);
           const a = document.createElement('a');
@@ -3954,15 +4207,22 @@
           document.body.appendChild(a);
           a.click();
           a.remove();
+          completeProgress('ZIP Download Ready', `Packaged ${completed} MP3 recordings into ZIP.`, 2200);
           setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
         } else {
-          for (const id of ids) {
+          for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const num = i + 1;
+            const pct = Math.round((num / total) * 100);
+            updateProgress('Downloading Audio', num, total, `Downloading #${id} (${num} of ${total})`);
             await downloadSingleAudio(id);
             await new Promise(r => setTimeout(r, 400));
           }
+          completeProgress('Downloads Complete', `Downloaded ${total} audio recordings.`, 2000);
         }
       } catch (err) {
         console.error('Batch audio download failed:', err);
+        hideProgress();
       } finally {
         if (btn) {
           btn.disabled = false;
@@ -4045,6 +4305,7 @@
           clip.transcript = newText;
           clip.transcribed = true;
           clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+          clip.metadata.manual_transcript = true;
 
           if (supabaseClient) {
             try {
@@ -4085,6 +4346,7 @@
           clip.transcript = newText;
           clip.transcribed = true;
           clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+          clip.metadata.manual_transcript = true;
 
           const aiMeta = await generateAiTitleAndPriority(newText);
           if (aiMeta) {
@@ -4192,11 +4454,44 @@
       }
 
       let networkCertBlocked = false;
+      const total = ids.length;
+      const transBtn = document.getElementById('transcribeSelectedBtn');
+      const mTransBtn = document.getElementById('mBatchTranscribeBtn');
+      const originalText = transBtn ? transBtn.innerHTML : '';
+      const originalMText = mTransBtn ? mTransBtn.innerHTML : '';
+
+      if (total > 1) {
+        updateProgress('AI Transcription Batch', 0, total, `Starting AI transcription for ${total} clips...`);
+        if (transBtn) {
+          transBtn.disabled = true;
+          transBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> 0% (0/' + total + ')';
+        }
+        if (mTransBtn) {
+          mTransBtn.disabled = true;
+          mTransBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> 0% (0/' + total + ')';
+        }
+        refreshLucideIcons();
+      }
+
+      let completedCount = 0;
 
       for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
+        const currentNum = i + 1;
+        const pct = Math.round((currentNum / total) * 100);
         const clip = dispatches.find(d => String(d.id) === String(id));
         if (!clip) continue;
+
+        if (total > 1) {
+          updateProgress('AI Audio Transcription', currentNum, total, `Transcribing clip #${id} (${currentNum} of ${total})...`);
+          if (transBtn) {
+            transBtn.innerHTML = `<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> ${currentNum}/${total} (${pct}%)`;
+          }
+          if (mTransBtn) {
+            mTransBtn.innerHTML = `<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> ${currentNum}/${total} (${pct}%)`;
+          }
+          refreshLucideIcons();
+        }
 
         clip.transcribing = true;
         render();
@@ -4268,6 +4563,7 @@
           clip.transcribed = true;
           clip.transcribing = false;
           clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+          clip.metadata.manual_transcript = false;
 
           // Automatically generate AI Incident Title & Priority
           if (transcriptText && transcriptText !== '(No speech detected)') {
@@ -4307,6 +4603,8 @@
               console.warn('Database save error:', dbErr);
             }
           }
+
+          completedCount++;
         } catch (err) {
           console.error(`Transcription error on clip ${id}:`, err);
           clip.transcribing = false;
@@ -4314,6 +4612,19 @@
         }
 
         render();
+      }
+
+      if (total > 1) {
+        completeProgress('AI Transcription Complete', `Transcribed ${completedCount} of ${total} dispatches (100%).`, 2200);
+        if (transBtn) {
+          transBtn.disabled = false;
+          transBtn.innerHTML = originalText;
+        }
+        if (mTransBtn) {
+          mTransBtn.disabled = false;
+          mTransBtn.innerHTML = originalMText;
+        }
+        refreshLucideIcons();
       }
 
       if (networkCertBlocked && !config.proxyUrl) {
