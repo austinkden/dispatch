@@ -1631,6 +1631,20 @@
           <label class="form-label">Groq API Key (whisper-large-v3-turbo)</label>
           <input type="password" id="cfgGroqApiKey" class="form-input" />
         </div>
+
+        <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--outline-variant);">
+          <label class="form-label" style="color: #f87171; display: flex; align-items: center; gap: 5px;">
+            <i data-lucide="alert-triangle" class="lucide-xs"></i>
+            Danger Zone
+          </label>
+          <p style="font-size: 11.5px; color: var(--on-surface-variant); margin-bottom: 10px; line-height: 1.4;">
+            Permanently delete all audio transmissions and transcripts from both database and storage.
+          </p>
+          <button class="btn btn-danger btn-sm" id="deleteAllDispatchesBtn" style="width: 100%; justify-content: center;">
+            <i data-lucide="trash-2" class="lucide-sm"></i>
+            Delete All Transcripts & Dispatches
+          </button>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-tonal" id="cancelSettingsBtn">Cancel</button>
@@ -1863,6 +1877,9 @@
       refreshLucideIcons();
     }
 
+    let currentClientUrl = '';
+    let currentClientKey = '';
+
     async function loadConfig() {
       const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
       if (saved) {
@@ -1872,7 +1889,7 @@
       document.getElementById('cfgSupabaseAnonKey').value = config.supabaseAnonKey || '';
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
 
-      // Sync Groq key from backend database if available
+      // Gracefully sync Groq key from backend database if available
       if (supabaseClient) {
         try {
           const { data, error } = await supabaseClient
@@ -1887,7 +1904,7 @@
             localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
           }
         } catch (err) {
-          // Ignore if app_config not created yet
+          // Table may not be created yet, fallback to localStorage
         }
       }
     }
@@ -1915,25 +1932,35 @@
 
           if (!error) {
             showToast('Groq API Key synced to backend database!', 'success');
-          } else {
-            console.warn('Backend app_config save note:', error.message);
           }
         } catch (err) {
-          console.warn('Backend config save failed:', err);
+          // Table may not exist yet in Supabase
         }
       }
     }
 
     function initSupabase() {
-      if (window.supabase && config.supabaseUrl && config.supabaseAnonKey) {
-        try {
-          supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-          setupRealtime();
-          setupStatusBroadcastListener();
-          loadConfig(); // Fetch synced backend config if present
-        } catch (err) {
-          console.error('Supabase init failed:', err);
-        }
+      if (!window.supabase || !config.supabaseUrl || !config.supabaseAnonKey) return;
+
+      // Reuse existing client instance if already created with identical credentials
+      if (supabaseClient && currentClientUrl === config.supabaseUrl && currentClientKey === config.supabaseAnonKey) {
+        return;
+      }
+
+      try {
+        currentClientUrl = config.supabaseUrl;
+        currentClientKey = config.supabaseAnonKey;
+        supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: false
+          }
+        });
+        setupRealtime();
+        setupStatusBroadcastListener();
+      } catch (err) {
+        console.error('Supabase init failed:', err);
       }
     }
 
@@ -2048,7 +2075,7 @@
 
         if (currentSearch) {
           const q = currentSearch.toLowerCase();
-          const title = (meta.title || d.title || `Dispatch #${d.id}`).toLowerCase();
+          const title = (meta.title || d.title || 'Transcript').toLowerCase();
           const titleMatch = title.includes(q);
           const transcriptMatch = (d.transcript || '').toLowerCase().includes(q);
           const idMatch = String(d.id || '').toLowerCase().includes(q);
@@ -2122,7 +2149,7 @@
       const isSelected = selectedIds.has(clip.id);
       const isSaved = !!clip.saved;
       const meta = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
-      const customTitle = meta.title || clip.title || `Dispatch #${clip.id}`;
+      const customTitle = meta.title || clip.title || 'Transcript';
       const priority = parseInt(meta.priority || clip.priority || 0, 10);
       const createdDate = new Date(clip.created_at || Date.now());
       const timeAgo = formatTimeAgo(createdDate);
@@ -2289,10 +2316,10 @@
           if (!wrap || !clip) return;
 
           const meta = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
-          const currentVal = meta.title || clip.title || `Dispatch #${id}`;
+          const currentVal = meta.title || clip.title || 'Transcript';
 
           wrap.innerHTML = `
-            <input type="text" class="call-title-input" id="inputTitle-${id}" value="${escapeHtml(currentVal)}" maxlength="50" placeholder="Call Name / Incident..." />
+            <input type="text" class="call-title-input" id="inputTitle-${id}" value="${escapeHtml(currentVal)}" maxlength="50" placeholder="Call Title / Incident..." />
           `;
 
           const input = document.getElementById(`inputTitle-${id}`);
@@ -2301,7 +2328,7 @@
             input.select();
 
             const saveTitle = async () => {
-              const newVal = input.value.trim() || `Dispatch #${id}`;
+              const newVal = input.value.trim() || 'Transcript';
               clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
               clip.metadata.title = newVal;
               clip.metadata.manual_title = true;
@@ -2576,6 +2603,63 @@
       }
     }
 
+    async function deleteAllDispatches() {
+      if (!supabaseClient) {
+        showToast('Supabase client not initialized.', 'error');
+        return;
+      }
+      if (dispatches.length === 0) {
+        showToast('No dispatches to delete.', 'info');
+        return;
+      }
+      const total = dispatches.length;
+      const confirmed = confirm(`Are you sure you want to delete ALL ${total} dispatches and transcripts? This will permanently wipe all audio and database records.`);
+      if (!confirmed) return;
+
+      const deleteBtn = document.getElementById('deleteAllDispatchesBtn');
+      if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i data-lucide="loader-2" class="lucide-sm spin-icon"></i> Deleting all...';
+        refreshLucideIcons();
+      }
+
+      showToast(`Deleting all ${total} dispatches...`, 'info');
+
+      try {
+        // Collect all storage paths
+        const storagePaths = dispatches
+          .map(d => d.storage_path)
+          .filter(Boolean);
+
+        if (storagePaths.length > 0) {
+          await supabaseClient.storage.from('dispatches').remove(storagePaths);
+        }
+
+        // Delete all rows from dispatches table
+        const { error } = await supabaseClient
+          .from('dispatches')
+          .delete()
+          .neq('id', 0);
+
+        if (error) throw error;
+
+        dispatches = [];
+        selectedIds.clear();
+        render();
+        closeModal();
+        showToast(`Successfully deleted all ${total} dispatches.`, 'success');
+      } catch (err) {
+        console.error('Delete all error:', err);
+        showToast('Failed to delete all dispatches: ' + err.message, 'error');
+      } finally {
+        if (deleteBtn) {
+          deleteBtn.disabled = false;
+          deleteBtn.innerHTML = '<i data-lucide="trash-2" class="lucide-sm"></i> Delete All Transcripts & Dispatches';
+          refreshLucideIcons();
+        }
+      }
+    }
+
     // ==============================================================================
     // GROQ WHISPER TRANSCRIPTION
     // ==============================================================================
@@ -2808,6 +2892,7 @@
       document.getElementById('closeSettingsBtn').addEventListener('click', closeModal);
       document.getElementById('cancelSettingsBtn').addEventListener('click', closeModal);
       document.getElementById('saveSettingsBtn').addEventListener('click', saveConfig);
+      document.getElementById('deleteAllDispatchesBtn').addEventListener('click', deleteAllDispatches);
 
       document.getElementById('settingsModal').addEventListener('click', e => {
         if (e.target.id === 'settingsModal') closeModal();
