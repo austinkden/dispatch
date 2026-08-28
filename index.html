@@ -1664,8 +1664,18 @@
           <input type="password" id="cfgSupabaseAnonKey" class="form-input" />
         </div>
         <div class="form-group">
-          <label class="form-label">Groq API Key (whisper-large-v3-turbo)</label>
+          <label class="form-label">Groq API Key (Whisper Audio Transcription)</label>
           <input type="password" id="cfgGroqApiKey" class="form-input" />
+        </div>
+
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Google Gemini API Key (Auto-Titling & Priority)</label>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size: 11px; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 3px;">
+              Get Free Key <i data-lucide="external-link" class="lucide-xs"></i>
+            </a>
+          </div>
+          <input type="password" id="cfgGeminiApiKey" class="form-input" placeholder="AIzaSy..." />
         </div>
 
         <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--outline-variant);">
@@ -1924,21 +1934,34 @@
       document.getElementById('cfgSupabaseUrl').value = config.supabaseUrl || '';
       document.getElementById('cfgSupabaseAnonKey').value = config.supabaseAnonKey || '';
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
+      document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey || '';
 
-      // Gracefully sync Groq key from backend database if available
+      // Gracefully sync keys from backend database if available
       if (supabaseClient) {
         try {
-          const { data, error } = await supabaseClient
+          const { data: groqData } = await supabaseClient
             .from('app_config')
             .select('value')
             .eq('key', 'groq_api_key')
             .maybeSingle();
 
-          if (!error && data && data.value) {
-            config.groqApiKey = data.value;
-            document.getElementById('cfgGroqApiKey').value = data.value;
-            localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+          if (groqData && groqData.value) {
+            config.groqApiKey = groqData.value;
+            document.getElementById('cfgGroqApiKey').value = groqData.value;
           }
+
+          const { data: geminiData } = await supabaseClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'gemini_api_key')
+            .maybeSingle();
+
+          if (geminiData && geminiData.value) {
+            config.geminiApiKey = geminiData.value;
+            document.getElementById('cfgGeminiApiKey').value = geminiData.value;
+          }
+
+          localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
         } catch (err) {
           // Table may not be created yet, fallback to localStorage
         }
@@ -1949,25 +1972,29 @@
       config.supabaseUrl = document.getElementById('cfgSupabaseUrl').value.trim();
       config.supabaseAnonKey = document.getElementById('cfgSupabaseAnonKey').value.trim();
       config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
+      config.geminiApiKey = document.getElementById('cfgGeminiApiKey').value.trim();
 
       localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
       showToast('Settings saved!', 'success');
       closeModal();
       initSupabase();
 
-      // Persist Groq API key to Supabase backend app_config table
-      if (supabaseClient && config.groqApiKey) {
+      // Persist API keys to Supabase backend app_config table
+      if (supabaseClient) {
         try {
-          const { error } = await supabaseClient
-            .from('app_config')
-            .upsert({
+          if (config.groqApiKey) {
+            await supabaseClient.from('app_config').upsert({
               key: 'groq_api_key',
               value: config.groqApiKey,
               updated_at: new Date().toISOString()
             });
-
-          if (!error) {
-            showToast('Groq API Key synced to backend database!', 'success');
+          }
+          if (config.geminiApiKey) {
+            await supabaseClient.from('app_config').upsert({
+              key: 'gemini_api_key',
+              value: config.geminiApiKey,
+              updated_at: new Date().toISOString()
+            });
           }
         } catch (err) {
           // Table may not exist yet in Supabase
@@ -2735,15 +2762,23 @@
       showToast(`Deleting ${total} dispatch${total > 1 ? 'es' : ''}...`, 'info');
 
       try {
+        const numericIds = ids.map(id => parseInt(id, 10)).filter(n => !isNaN(n));
         const clipsToDelete = dispatches.filter(d => ids.includes(String(d.id)));
+        
         const storagePaths = clipsToDelete
-          .map(d => d.storage_path)
+          .map(d => {
+            if (d.storage_path) return d.storage_path;
+            if (d.audio_url && d.audio_url.includes('/dispatch-clips/')) {
+              return d.audio_url.split('/dispatch-clips/')[1];
+            }
+            return null;
+          })
           .filter(Boolean);
 
         if (storagePaths.length > 0) {
           const { error: storageError } = await supabaseClient
             .storage
-            .from('dispatches')
+            .from('dispatch-clips')
             .remove(storagePaths);
 
           if (storageError) {
@@ -2751,17 +2786,18 @@
           }
         }
 
+        // Delete from database
         const { error: dbError } = await supabaseClient
           .from('dispatches')
           .delete()
-          .in('id', ids);
+          .in('id', numericIds);
 
         if (dbError) throw dbError;
 
         dispatches = dispatches.filter(d => !ids.includes(String(d.id)));
         ids.forEach(id => selectedIds.delete(id));
         render();
-        showToast(`Deleted ${total} dispatch${total > 1 ? 'es' : ''}.`, 'success');
+        showToast(`Deleted ${total} dispatch${total > 1 ? 'es' : ''} from database.`, 'success');
       } catch (err) {
         console.error('Database deletion failed:', err);
         showToast('Failed to delete from database: ' + err.message, 'error');
@@ -2793,18 +2829,24 @@
       try {
         // Collect all storage paths
         const storagePaths = dispatches
-          .map(d => d.storage_path)
+          .map(d => {
+            if (d.storage_path) return d.storage_path;
+            if (d.audio_url && d.audio_url.includes('/dispatch-clips/')) {
+              return d.audio_url.split('/dispatch-clips/')[1];
+            }
+            return null;
+          })
           .filter(Boolean);
 
         if (storagePaths.length > 0) {
-          await supabaseClient.storage.from('dispatches').remove(storagePaths);
+          await supabaseClient.storage.from('dispatch-clips').remove(storagePaths);
         }
 
         // Delete all rows from dispatches table
         const { error } = await supabaseClient
           .from('dispatches')
           .delete()
-          .neq('id', 0);
+          .gte('id', 0);
 
         if (error) throw error;
 
@@ -2812,7 +2854,7 @@
         selectedIds.clear();
         render();
         closeModal();
-        showToast(`Successfully deleted all ${total} dispatches.`, 'success');
+        showToast(`Successfully deleted all ${total} dispatches from SQL.`, 'success');
       } catch (err) {
         console.error('Delete all error:', err);
         showToast('Failed to delete all dispatches: ' + err.message, 'error');
@@ -2932,55 +2974,112 @@
     }
 
     async function generateAiTitleAndPriority(transcript) {
-      if (!config.groqApiKey || !transcript || transcript.length < 3) return null;
-      
-      const candidateModels = ['llama-3.3-70b-versatile', 'llama3-8b-8192', 'llama-3.1-8b-instant'];
-      
-      for (const model of candidateModels) {
-        try {
-          const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${config.groqApiKey.trim()}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: [
-                {
-                  role: 'system',
-                  content: 'You are an emergency radio dispatcher. Summarize the radio transcript into a concise incident title (2 to 5 words, e.g. "Structure Fire - Main St", "Traffic Stop Unit 4", "Medical Emergency Code 3", "Suspicious Vehicle", "Routine Radio Check") and assign a priority number 1-5 (1: critical/code 3, 2: high incident, 3: medium, 4: routine, 5: low/info). Output valid JSON format: {"title": "...", "priority": 1-5}. No extra text.'
-                },
-                {
-                  role: 'user',
-                  content: transcript
+      if (!transcript || transcript.length < 3) return null;
+
+      // 1. Primary Engine: Google Gemini (Fast & Accurate Free Tier)
+      if (config.geminiApiKey) {
+        const geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+        for (const model of geminiModels) {
+          try {
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
+            const resp = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      {
+                        text: `You are an expert emergency dispatch radio analyst. Given the radio transcript, generate a concise incident title (2 to 5 words, e.g. "Structure Fire - Main St", "Traffic Stop Unit 4", "Medical Emergency Code 3", "Suspicious Vehicle", "Routine Radio Check") and an emergency priority level from 1 (critical/code 3) to 5 (routine/info). Return strictly JSON format: {"title": "...", "priority": 1}\n\nTranscript:\n${transcript}`
+                      }
+                    ]
+                  }
+                ],
+                generationConfig: {
+                  responseMimeType: 'application/json',
+                  temperature: 0.1
                 }
-              ],
-              response_format: { type: 'json_object' },
-              temperature: 0.1,
-              max_tokens: 100
-            })
-          });
+              })
+            });
 
-          if (!resp.ok) {
-            const errData = await resp.text();
-            console.warn(`Groq chat model ${model} status ${resp.status}:`, errData);
-            continue;
-          }
+            if (!resp.ok) {
+              const errText = await resp.text();
+              console.warn(`Gemini ${model} returned ${resp.status}:`, errText);
+              continue;
+            }
 
-          const data = await resp.json();
-          const rawContent = data.choices?.[0]?.message?.content;
-          if (rawContent) {
-            const parsed = JSON.parse(rawContent);
-            return {
-              title: parsed.title ? String(parsed.title).trim() : null,
-              priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
-            };
+            const data = await resp.json();
+            const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (textResponse) {
+              const parsed = JSON.parse(textResponse);
+              return {
+                title: parsed.title ? String(parsed.title).trim() : null,
+                priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
+              };
+            }
+          } catch (geminiErr) {
+            console.warn(`Gemini titling error on ${model}:`, geminiErr);
           }
-        } catch (err) {
-          console.warn(`AI titling error with ${model}:`, err);
         }
       }
+
+      // 2. Secondary Fallback Engine: Groq LLaMA
+      if (config.groqApiKey) {
+        const groqCandidateModels = [
+          'llama3-8b-8192',
+          'llama3-70b-8192',
+          'mixtral-8x7b-32768',
+          'gemma2-9b-it',
+          'llama-3.3-70b-versatile'
+        ];
+
+        for (const model of groqCandidateModels) {
+          try {
+            const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${config.groqApiKey.trim()}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: model,
+                messages: [
+                  {
+                    role: 'system',
+                    content: 'You are an emergency radio dispatcher. Summarize the radio transcript into a concise incident title (2 to 5 words, e.g. "Structure Fire - Main St", "Traffic Stop Unit 4", "Medical Emergency Code 3", "Suspicious Vehicle", "Routine Radio Check") and assign a priority number 1-5 (1: critical/code 3, 2: high incident, 3: medium, 4: routine, 5: low/info). Output valid JSON format: {"title": "...", "priority": 1-5}. No extra text.'
+                  },
+                  {
+                    role: 'user',
+                    content: transcript
+                  }
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0.1,
+                max_tokens: 100
+              })
+            });
+
+            if (!resp.ok) {
+              const errData = await resp.text();
+              console.warn(`Groq chat model ${model} status ${resp.status}:`, errData);
+              continue;
+            }
+
+            const data = await resp.json();
+            const rawContent = data.choices?.[0]?.message?.content;
+            if (rawContent) {
+              const parsed = JSON.parse(rawContent);
+              return {
+                title: parsed.title ? String(parsed.title).trim() : null,
+                priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
+              };
+            }
+          } catch (err) {
+            console.warn(`Groq AI titling error with ${model}:`, err);
+          }
+        }
+      }
+
       return null;
     }
 
