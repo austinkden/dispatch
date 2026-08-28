@@ -23,7 +23,7 @@ import slicer
 # 24/7 Slicer Background Worker Thread
 # ==============================================================================
 worker_status = {
-    "state": "INITIALIZING",
+    "state": "RUNNING",
     "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
     "stream_url": os.getenv("STREAM_URL", slicer.STREAM_URL),
     "supabase_url": os.getenv("SUPABASE_URL", slicer.SUPABASE_URL),
@@ -34,7 +34,6 @@ worker_status = {
 def run_slicer_daemon():
     """Runs the 24/7 audio stream listener continuously in the background."""
     print("\n[CLOUD LAUNCHER] Starting 24/7 radio stream listener background worker...")
-    worker_status["state"] = "RUNNING"
 
     uploader = slicer.DispatchUploader(
         url=worker_status["supabase_url"],
@@ -53,15 +52,18 @@ def run_slicer_daemon():
         max_clip_duration_sec=float(os.getenv("MAX_CLIP_DURATION_SEC", str(slicer.MAX_CLIP_DURATION_SEC)))
     )
 
-    try:
-        stream_worker.run()
-    except Exception as e:
-        print(f"[CLOUD LAUNCHER ERROR] Slicer worker error: {e}", file=sys.stderr)
-        worker_status["state"] = "ERROR"
-        worker_status["error"] = str(e)
+    while True:
+        try:
+            worker_status["state"] = "STREAMING"
+            stream_worker.run()
+        except Exception as e:
+            print(f"[CLOUD LAUNCHER ERROR] Slicer worker error: {e}", file=sys.stderr)
+            worker_status["state"] = "RECONNECTING"
+            worker_status["error"] = str(e)
+            time.sleep(5)
 
 
-# Start background stream listener immediately
+# Start background stream listener immediately in daemon thread
 listener_thread = threading.Thread(target=run_slicer_daemon, daemon=True)
 listener_thread.start()
 
@@ -75,21 +77,24 @@ def get_worker_status_markdown():
 
 - **Worker State**: `{worker_status['state']}`
 - **Started At**: `{worker_status['started_at']}`
-- **Target Stream**: `{worker_status['stream_url'][:60]}...`
+- **Target Stream**: `{worker_status['stream_url']}`
 - **Supabase Target**: `{worker_status['supabase_url']}`
-- **Retention Purge**: Automatic 7-day auto-purge daemon active
+- **7-Day Retention Purge**: Active
 
 ---
-### 🌐 Accessing the Frontend
-Open your **GitHub Pages** dashboard to view live radio dispatches, play audio, and transcribe in real-time.
+### 🌐 Public Web Dashboard
+Your dashboard is live on **GitHub Pages** (or visit your custom domain).
 """
 
 with gr.Blocks(title="Trace Dispatch - 24/7 Cloud Worker") as demo:
     gr.Markdown("# 📻 Trace Dispatch — 24/7 Emergency Audio Ingestion Daemon")
-    status_output = gr.Markdown(get_worker_status_markdown())
-    refresh_btn = gr.Button("🔄 Refresh Worker Status")
+    status_output = gr.Markdown(get_worker_status_markdown)
+    refresh_btn = gr.Button("🔄 Refresh Status")
     refresh_btn.click(fn=get_worker_status_markdown, outputs=status_output)
 
-# Standard Gradio launch (works seamlessly with Hugging Face Spaces port binding)
-if __name__ == "__main__":
-    demo.launch()
+# Launch Gradio with SSR mode disabled to prevent Node.js proxy exits
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=7860,
+    ssr_mode=False
+)
