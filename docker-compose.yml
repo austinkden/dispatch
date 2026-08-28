@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  trace-dispatch-listener:
+    build: .
+    container_name: trace-dispatch-listener
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1

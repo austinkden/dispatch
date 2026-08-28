@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Trace Dispatch - Emergency Audio Indexer & Whisper AI</title>
+  <meta name="description" content="Zero-cost real-time emergency dispatch audio indexing, playback, and AI transcription powered by Supabase and Groq Whisper." />
+
+  <!-- Google Fonts: Google Sans Flex & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,slnt,wdth,wght,GRAD,ROND@6..144,-10..0,25..151,1..1000,0..100,0..100&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons & Supabase JS SDK -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* ==============================================================================
+       CLEAN MATERIAL 3 DESIGN SYSTEM
+       ============================================================================== */
+    :root {
+      --background: #121016;
+      --surface: #1d1b20;
+      --surface-variant: #2d2a33;
+      --surface-container-high: #27242c;
+      --surface-container-highest: #322e38;
+      
+      --primary: #8859ff;
+      --primary-container: #33245c;
+      --on-primary: #ffffff;
+      --on-primary-container: #eaddff;
+      
+      --secondary: #06b6d4;
+      --tertiary: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --red-container: rgba(239, 68, 68, 0.12);
+
+      --on-surface: #e6e1e5;
+      --on-surface-variant: #cac4d0;
+      --outline: #38343e;
+      --outline-variant: #2b2731;
+
+      --highlight-color: #8859ff;
+      --highlight-bg: rgba(136, 89, 255, 0.2);
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-xl: 24px;
+      --radius-full: 9999px;
+
+      --font-family: 'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: var(--font-family);
+    }
+
+    *::selection {
+      color: #ffffff;
+      background: var(--highlight-bg);
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--background);
+      color: var(--on-surface);
+      line-height: 1.5;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* Lucide Icon Sizing */
+    .lucide {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      vertical-align: middle;
+      stroke-width: 2;
+    }
+    .lucide-sm {
+      width: 14px;
+      height: 14px;
+    }
+    .lucide-lg {
+      width: 20px;
+      height: 20px;
+    }
+
+    /* ==============================================================================
+       AUTH / LOCK SCREEN
+       ============================================================================== */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: #121016;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-xl);
+      padding: 32px 28px;
+      text-align: center;
+      animation: m3-fade 0.2s ease-out;
+    }
+    @keyframes m3-fade {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .auth-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      color: var(--primary);
+    }
+
+    .auth-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+      color: var(--on-surface);
+    }
+
+    .auth-desc {
+      font-size: 13px;
+      color: var(--on-surface-variant);
+      margin-bottom: 24px;
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .auth-input {
+      width: 100%;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      color: var(--on-surface);
+      font-size: 14px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.15s;
+      text-align: center;
+    }
+    .auth-input:focus {
+      border-color: var(--primary);
+      background: var(--surface-container-high);
+    }
+
+    .auth-error {
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 500;
+      display: none;
+    }
+
+    .shake {
+      animation: shake-anim 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+    @keyframes shake-anim {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+
+    /* ==============================================================================
+       TOP CONTROLS BAR & LIVE RECORDING STATUS
+       ============================================================================== */
+    .top-controls-bar {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      background: var(--background);
+      border-bottom: 1px solid var(--outline);
+      user-select: none;
+    }
+
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      letter-spacing: -0.01em;
+      text-decoration: none;
+    }
+
+    .brand-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--primary);
+    }
+
+    /* Live Audio Status Indicator Pill */
+    .live-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      border: 1px solid var(--outline);
+      background: var(--surface-variant);
+      transition: all 0.2s ease;
+    }
+    .live-status-badge.monitoring {
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.1);
+      color: #34d399;
+    }
+    .live-status-badge.recording {
+      border-color: rgba(239, 68, 68, 0.5);
+      background: rgba(239, 68, 68, 0.18);
+      color: #f87171;
+    }
+    .live-status-badge.offline {
+      border-color: var(--outline);
+      background: var(--surface-variant);
+      color: var(--on-surface-variant);
+    }
+
+    .status-dot-indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .live-status-badge.recording .status-dot-indicator {
+      animation: pulse-recording 1s infinite alternate ease-in-out;
+    }
+    @keyframes pulse-recording {
+      from { transform: scale(0.9); opacity: 0.7; }
+      to { transform: scale(1.3); opacity: 1; }
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .control-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 6px 12px;
+      min-height: 34px;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .control-btn:hover {
+      background: var(--surface);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .btn-kbd {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .btn-kbd kbd {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      padding: 1px 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--outline);
+      border-radius: 3px;
+      color: var(--on-surface-variant);
+    }
+
+    @media (max-width: 640px) {
+      .btn-label-text { display: none; }
+      .btn-kbd { display: none; }
+      .top-controls-bar { padding: 0.6rem 0.9rem; }
+      .control-btn { padding: 6px 10px; }
+    }
+
+    /* ==============================================================================
+       MAIN CONTAINER & METRICS
+       ============================================================================== */
+    .app-container {
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 24px 16px 100px;
+      position: relative;
+      z-index: 10;
+      display: none;
+    }
+
+    .hero-header {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .hero-title {
+      font-size: clamp(20px, 4vw, 24px);
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--on-surface);
+      margin-bottom: 2px;
+    }
+
+    .hero-subtitle {
+      font-size: 13px;
+      color: var(--on-surface-variant);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Metrics Grid */
+    .portal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .portal-card {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      transition: border-color 0.15s;
+    }
+    .portal-card:hover {
+      border-color: var(--on-surface-variant);
+    }
+
+    .card-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--on-surface);
+      letter-spacing: -0.02em;
+    }
+
+    .card-footer {
+      font-size: 11px;
+      color: var(--on-surface-variant);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ==============================================================================
+       ACTION TOOLBAR & QUICK CHIPS
+       ============================================================================== */
+    .toolbar-section {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .toolbar-top-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .search-input-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .search-input-wrap .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--on-surface-variant);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-full);
+      padding: 8px 14px 8px 36px;
+      color: var(--on-surface);
+      font-size: 13px;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .filter-chips-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .filter-chips-container::-webkit-scrollbar { display: none; }
+
+    .quick-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-full);
+      color: var(--on-surface-variant);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .quick-chip:hover {
+      background: var(--surface-container-high);
+      color: var(--on-surface);
+    }
+    .quick-chip.active {
+      background: var(--primary-container);
+      border-color: var(--primary);
+      color: var(--on-primary-container);
+    }
+
+    .toolbar-bottom-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--outline-variant);
+    }
+
+    .bulk-actions-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    /* ==============================================================================
+       BUTTONS
+       ============================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      min-height: 34px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--on-primary);
+    }
+    .btn-primary:hover {
+      background: #7949fa;
+    }
+
+    .btn-tonal {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      color: var(--on-surface);
+    }
+    .btn-tonal:hover {
+      border-color: var(--on-surface-variant);
+    }
+
+    .btn-danger {
+      background: var(--red-container);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--red);
+      color: #ffffff;
+    }
+
+    .btn-amber {
+      background: var(--amber);
+      color: #000000;
+      font-weight: 700;
+    }
+    .btn-amber:hover {
+      background: #d97706;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      min-height: 28px;
+      font-size: 11px;
+    }
+
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ==============================================================================
+       DISPATCH CLIPS FEED & CARDS
+       ============================================================================== */
+    .clips-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .dispatch-card {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      transition: border-color 0.15s;
+    }
+    .dispatch-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: var(--surface-container-high);
+    }
+    .dispatch-card.selected {
+      border-color: var(--primary);
+      background: rgba(136, 89, 255, 0.06);
+    }
+
+    .card-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .card-meta-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .m3-checkbox {
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 2px;
+    }
+    .m3-checkbox input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .checkbox-box {
+      width: 17px;
+      height: 17px;
+      border-radius: 4px;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s;
+    }
+    .m3-checkbox:hover input ~ .checkbox-box {
+      border-color: var(--primary);
+    }
+    .m3-checkbox input:checked ~ .checkbox-box {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .checkbox-box::after {
+      content: "";
+      display: none;
+      width: 4px;
+      height: 8px;
+      border: solid #ffffff;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg) translate(-0.5px, -1px);
+    }
+    .m3-checkbox input:checked ~ .checkbox-box::after {
+      display: block;
+    }
+
+    .clip-time {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--on-surface);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .clip-time-rel {
+      font-size: 11px;
+      color: var(--on-surface-variant);
+      font-family: var(--font-family);
+      font-weight: 400;
+    }
+
+    .badge-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--outline);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--on-surface-variant);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-pill.transcribed {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+    .badge-pill.pending {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.25);
+    }
+    .badge-pill.saved {
+      background: rgba(136, 89, 255, 0.12);
+      color: #c084fc;
+      border-color: rgba(136, 89, 255, 0.25);
+    }
+
+    .card-actions-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-icon-btn {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      color: var(--on-surface-variant);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 8px;
+      min-height: 28px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .card-icon-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .card-icon-btn.is-saved {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: var(--amber);
+    }
+    .card-icon-btn.delete-btn:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* Card Content Grid */
+    .card-body-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 768px) {
+      .card-body-grid {
+        grid-template-columns: 1fr 1.5fr;
+      }
+    }
+
+    /* Audio Player */
+    .audio-player-box {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .audio-main-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .m3-play-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: none;
+      color: var(--on-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.15s;
+    }
+    .m3-play-btn:hover {
+      background: #7949fa;
+    }
+
+    .audio-slider-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .audio-time-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+    }
+
+    .m3-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.12);
+      outline: none;
+      cursor: pointer;
+    }
+    .m3-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+    }
+
+    .audio-bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 4px;
+      border-top: 1px solid var(--outline-variant);
+    }
+
+    .speed-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--outline);
+      color: var(--on-surface-variant);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+
+    .download-link {
+      color: var(--on-surface-variant);
+      font-size: 11px;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .download-link:hover { color: var(--primary); }
+
+    /* Transcript Box */
+    .transcript-box {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      min-height: 76px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .transcript-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .transcript-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .transcript-text {
+      font-size: 13px;
+      color: var(--on-surface);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .highlight {
+      background: var(--highlight-bg);
+      color: #ffffff;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .transcript-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 0;
+      gap: 6px;
+      color: var(--on-surface-variant);
+      font-size: 11.5px;
+      text-align: center;
+    }
+
+    /* Modal */
+    .m3-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .m3-modal-overlay.open { display: flex; }
+
+    .m3-modal-card {
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 440px;
+      overflow: hidden;
+      animation: m3-fade 0.15s ease-out;
+    }
+
+    .modal-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+    }
+    .form-input {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      color: var(--on-surface);
+      font-size: 13px;
+      font-family: var(--font-mono);
+    }
+    .form-input:focus { border-color: var(--primary); }
+
+    .modal-footer {
+      padding: 12px 18px;
+      background: var(--surface-container-high);
+      border-top: 1px solid var(--outline);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      z-index: 10000;
+      pointer-events: none;
+    }
+    @media (max-width: 480px) {
+      .toast-container { left: 16px; right: 16px; bottom: 16px; align-items: stretch; }
+    }
+    .m3-toast {
+      background: var(--surface-container-highest);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      color: var(--on-surface);
+      font-size: 12.5px;
+      font-weight: 500;
+      animation: m3-fade 0.15s ease;
+      pointer-events: auto;
+      max-width: 400px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .m3-toast.success { border-left: 3px solid var(--tertiary); }
+    .m3-toast.error { border-left: 3px solid var(--red); }
+    .m3-toast.info { border-left: 3px solid var(--primary); }
+  </style>
+</head>
+<body>
+
+  <!-- Password Authentication Screen -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card" id="authCard">
+      <div class="auth-logo">
+        <i data-lucide="lock" class="lucide-lg"></i>
+      </div>
+      <h2 class="auth-title">Trace Dispatch</h2>
+      <p class="auth-desc">Protected Emergency Radio Indexer</p>
+      
+      <form class="auth-form" id="authForm">
+        <input type="password" id="authPassword" class="auth-input" placeholder="Enter Access Password" autofocus autocomplete="current-password" />
+        <div class="auth-error" id="authError">Incorrect Password. Try again.</div>
+        <button type="submit" class="btn btn-primary auth-btn" style="justify-content: center;">
+          <i data-lucide="unlock" class="lucide-sm"></i>
+          Unlock Console
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Top Controls Header Bar -->
+  <div class="top-controls-bar">
+    <a href="#" class="brand-pill">
+      <div class="brand-avatar">
+        <i data-lucide="radio" class="lucide"></i>
+      </div>
+      <span>Trace Dispatch</span>
+    </a>
+
+    <!-- Live Audio Recording Status Indicator -->
+    <div class="live-status-badge offline" id="liveAudioStatus">
+      <div class="status-dot-indicator"></div>
+      <span id="liveStatusText">LISTENER OFFLINE</span>
+    </div>
+
+    <div class="controls-group">
+      <button id="quick-search-btn" class="control-btn" title="Search Dispatches (Ctrl+K)">
+        <i data-lucide="search" class="lucide-sm"></i>
+        <span class="btn-kbd"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+      </button>
+      <button id="settings-btn" class="control-btn" title="API Settings">
+        <i data-lucide="settings" class="lucide-sm"></i>
+        <span class="btn-label-text">Settings</span>
+      </button>
+      <button id="lock-btn" class="control-btn" title="Lock Console">
+        <i data-lucide="lock" class="lucide-sm"></i>
+        <span class="btn-label-text">Lock</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="app-container" id="appContainer">
+    <!-- Hero Header -->
+    <header class="hero-header">
+      <h1 class="hero-title">Dispatch Radio Index</h1>
+      <div class="hero-subtitle">
+        <span>Feed 46604</span>
+        <span>&bull;</span>
+        <span>Supabase Storage</span>
+        <span>&bull;</span>
+        <span>Groq Whisper AI</span>
+      </div>
+    </header>
+
+    <!-- Metrics Cards Grid -->
+    <section class="portal-grid">
+      <div class="portal-card">
+        <div class="card-header-row">
+          <span class="card-title">Dispatches</span>
+          <i data-lucide="radio" class="lucide-sm" style="color: var(--primary);"></i>
+        </div>
+        <div class="card-value" id="statTotalClips">0</div>
+        <div class="card-footer">Indexed transmissions</div>
+      </div>
+
+      <div class="portal-card">
+        <div class="card-header-row">
+          <span class="card-title">Transcribed</span>
+          <i data-lucide="sparkles" class="lucide-sm" style="color: var(--tertiary);"></i>
+        </div>
+        <div class="card-value" id="statTranscribed">0</div>
+        <div class="card-footer" id="statTranscribedPct">0% completion</div>
+      </div>
+
+      <div class="portal-card">
+        <div class="card-header-row">
+          <span class="card-title">Pending</span>
+          <i data-lucide="clock" class="lucide-sm" style="color: var(--amber);"></i>
+        </div>
+        <div class="card-value" id="statPending">0</div>
+        <div class="card-footer">Awaiting Groq</div>
+      </div>
+
+      <div class="portal-card">
+        <div class="card-header-row">
+          <span class="card-title">Saved</span>
+          <i data-lucide="bookmark" class="lucide-sm" style="color: var(--secondary);"></i>
+        </div>
+        <div class="card-value" id="statSaved">0</div>
+        <div class="card-footer">No 7-day purge</div>
+      </div>
+    </section>
+
+    <!-- Action Toolbar & Quick Chips -->
+    <section class="toolbar-section">
+      <div class="toolbar-top-row">
+        <div class="search-input-wrap">
+          <i data-lucide="search" class="lucide search-icon"></i>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search transcripts in real-time..." />
+        </div>
+
+        <div class="filter-chips-container">
+          <button class="quick-chip active" data-filter="all">
+            <i data-lucide="layers" class="lucide-sm"></i>
+            All
+          </button>
+          <button class="quick-chip" data-filter="pending">
+            <i data-lucide="clock" class="lucide-sm"></i>
+            Pending
+          </button>
+          <button class="quick-chip" data-filter="transcribed">
+            <i data-lucide="sparkles" class="lucide-sm"></i>
+            Transcribed
+          </button>
+          <button class="quick-chip" data-filter="saved">
+            <i data-lucide="bookmark" class="lucide-sm"></i>
+            Saved
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-bottom-row">
+        <div class="bulk-actions-left">
+          <button class="btn btn-tonal btn-sm" id="toggleSelectAllBtn">
+            <i data-lucide="check-square" class="lucide-sm"></i>
+            Select All
+          </button>
+          <button class="btn btn-primary btn-sm" id="transcribeSelectedBtn" disabled>
+            <i data-lucide="sparkles" class="lucide-sm"></i>
+            Transcribe (0)
+          </button>
+          <button class="btn btn-danger btn-sm" id="deleteSelectedBtn" disabled title="Delete selected clips from database and storage">
+            <i data-lucide="trash-2" class="lucide-sm"></i>
+            Delete (0)
+          </button>
+        </div>
+
+        <button class="btn btn-tonal btn-sm" id="exportBtn" title="Export JSON">
+          <i data-lucide="download" class="lucide-sm"></i>
+          Export
+        </button>
+      </div>
+    </section>
+
+    <!-- Feed Container -->
+    <section id="clipsFeed" class="clips-feed"></section>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state" style="display: none; padding: 50px 20px; text-align: center;">
+      <div style="width: 44px; height: 44px; border-radius: var(--radius-sm); background: var(--surface-variant); border: 1px solid var(--outline); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: var(--on-surface-variant);">
+        <i data-lucide="radio-tower" class="lucide-lg"></i>
+      </div>
+      <h3 style="font-size: 15px; margin-bottom: 4px;" id="emptyTitle">No Dispatches Indexed</h3>
+      <p style="font-size: 13px; color: var(--on-surface-variant);" id="emptyDesc">Ensure background audio slicer is running to capture live radio audio.</p>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="m3-modal-overlay" id="settingsModal">
+    <div class="m3-modal-card">
+      <div class="modal-header">
+        <h3 style="font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="sliders" class="lucide-sm"></i>
+          Settings & API Configuration
+        </h3>
+        <button class="control-btn" id="closeSettingsBtn" style="padding: 4px 8px;">
+          <i data-lucide="x" class="lucide-sm"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Supabase URL</label>
+          <input type="text" id="cfgSupabaseUrl" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supabase Anon Key</label>
+          <input type="password" id="cfgSupabaseAnonKey" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Groq API Key (whisper-large-v3-turbo)</label>
+          <input type="password" id="cfgGroqApiKey" class="form-input" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-tonal" id="cancelSettingsBtn">Cancel</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ==============================================================================
+       JAVASCRIPT LOGIC
+       ============================================================================== -->
+  <script>
+    const STORAGE_KEY_CONFIG = 'trace_dispatch_config';
+    const STORAGE_KEY_AUTH = 'trace_dispatch_authenticated';
+    const AUTH_PASSWORD = 'welcome';
+    const DEFAULT_GROQ_MODEL = 'whisper-large-v3-turbo';
+
+    let config = {
+      supabaseUrl: 'https://uquhzylwnzprokmqadno.supabase.co',
+      supabaseAnonKey: 'sb_publishable_1jzfgBYw-Ix38_IYqccQbQ_XpJ5jJW1',
+      groqApiKey: ''
+    };
+
+    let supabaseClient = null;
+    let dispatches = [];
+    let selectedIds = new Set();
+    let currentFilter = 'all';
+    let currentSearch = '';
+    let currentlyPlayingAudio = null;
+    let currentlyPlayingBtn = null;
+    let realtimeChannel = null;
+    let statusChannel = null;
+    let lastHeartbeatTimestamp = 0;
+    let heartbeatCheckTimer = null;
+
+    // ==============================================================================
+    // AUTHENTICATION
+    // ==============================================================================
+    function checkAuth() {
+      const isAuth = sessionStorage.getItem(STORAGE_KEY_AUTH) === 'true' || localStorage.getItem(STORAGE_KEY_AUTH) === 'true';
+      if (isAuth) {
+        unlockApp();
+      } else {
+        document.getElementById('authOverlay').style.display = 'flex';
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('authPassword').focus();
+        refreshLucideIcons();
+      }
+    }
+
+    function handleAuthSubmit(e) {
+      e.preventDefault();
+      const pwd = document.getElementById('authPassword').value;
+      const errEl = document.getElementById('authError');
+      const cardEl = document.getElementById('authCard');
+
+      if (pwd === AUTH_PASSWORD) {
+        sessionStorage.setItem(STORAGE_KEY_AUTH, 'true');
+        localStorage.setItem(STORAGE_KEY_AUTH, 'true');
+        unlockApp();
+      } else {
+        errEl.style.display = 'block';
+        cardEl.classList.remove('shake');
+        void cardEl.offsetWidth;
+        cardEl.classList.add('shake');
+        document.getElementById('authPassword').select();
+      }
+    }
+
+    function lockApp() {
+      sessionStorage.removeItem(STORAGE_KEY_AUTH);
+      localStorage.removeItem(STORAGE_KEY_AUTH);
+      document.getElementById('authOverlay').style.display = 'flex';
+      document.getElementById('appContainer').style.display = 'none';
+      document.getElementById('authPassword').value = '';
+      document.getElementById('authError').style.display = 'none';
+      document.getElementById('authPassword').focus();
+      showToast('Dashboard locked.', 'info');
+      refreshLucideIcons();
+    }
+
+    function unlockApp() {
+      document.getElementById('authOverlay').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'block';
+      initApp();
+    }
+
+    function refreshLucideIcons() {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    }
+
+    // ==============================================================================
+    // LIVE AUDIO RECORDING STATUS INDICATOR
+    // ==============================================================================
+    function setAudioStatus(state, duration = 0, dbfs = 0) {
+      const badge = document.getElementById('liveAudioStatus');
+      const text = document.getElementById('liveStatusText');
+      if (!badge || !text) return;
+
+      badge.classList.remove('monitoring', 'recording', 'offline');
+
+      if (state === 'RECORDING') {
+        badge.classList.add('recording');
+        const durStr = duration > 0 ? ` (${duration.toFixed(1)}s)` : '';
+        text.textContent = `RECORDING CLIP${durStr}`;
+      } else if (state === 'MONITORING' || state === 'IDLE') {
+        badge.classList.add('monitoring');
+        text.textContent = 'LISTENING // MONITORING';
+      } else {
+        badge.classList.add('offline');
+        text.textContent = 'LISTENER OFFLINE';
+      }
+    }
+
+    function startHeartbeatMonitor() {
+      if (heartbeatCheckTimer) clearInterval(heartbeatCheckTimer);
+      heartbeatCheckTimer = setInterval(() => {
+        const elapsed = (Date.now() - lastHeartbeatTimestamp) / 1000;
+        if (lastHeartbeatTimestamp === 0 || elapsed > 8) {
+          setAudioStatus('OFFLINE');
+        }
+      }, 3000);
+    }
+
+    // ==============================================================================
+    // INITIALIZATION & SUPABASE
+    // ==============================================================================
+    function initApp() {
+      loadConfig();
+      setupEventListeners();
+      initSupabase();
+      fetchDispatches();
+      startHeartbeatMonitor();
+      refreshLucideIcons();
+    }
+
+    function loadConfig() {
+      const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
+      if (saved) {
+        try { config = { ...config, ...JSON.parse(saved) }; } catch (e) {}
+      }
+      document.getElementById('cfgSupabaseUrl').value = config.supabaseUrl || '';
+      document.getElementById('cfgSupabaseAnonKey').value = config.supabaseAnonKey || '';
+      document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
+    }
+
+    function saveConfig() {
+      config.supabaseUrl = document.getElementById('cfgSupabaseUrl').value.trim();
+      config.supabaseAnonKey = document.getElementById('cfgSupabaseAnonKey').value.trim();
+      config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
+
+      localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+      showToast('Settings saved successfully!', 'success');
+      closeModal();
+      initSupabase();
+      fetchDispatches();
+    }
+
+    function initSupabase() {
+      if (config.supabaseUrl && config.supabaseAnonKey && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+          setupRealtime();
+          setupStatusBroadcastListener();
+        } catch (err) {
+          console.error('Supabase init failed:', err);
+        }
+      }
+    }
+
+    function setupStatusBroadcastListener() {
+      if (!supabaseClient) return;
+      if (statusChannel) supabaseClient.removeChannel(statusChannel);
+
+      statusChannel = supabaseClient.channel('realtime:stream_status');
+      statusChannel
+        .on('broadcast', { event: 'vad_state' }, msg => {
+          lastHeartbeatTimestamp = Date.now();
+          const p = msg.payload || {};
+          setAudioStatus(p.state || 'MONITORING', p.duration || 0, p.dbfs || 0);
+        })
+        .subscribe();
+    }
+
+    function setupRealtime() {
+      if (!supabaseClient) return;
+      if (realtimeChannel) supabaseClient.removeChannel(realtimeChannel);
+
+      realtimeChannel = supabaseClient
+        .channel('public:dispatches')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dispatches' }, payload => {
+          if (!dispatches.some(d => String(d.id) === String(payload.new.id))) {
+            showToast(`New transmission slice saved (${payload.new.duration}s)`, 'info');
+            dispatches.unshift(payload.new);
+            render();
+          }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dispatches' }, payload => {
+          const idx = dispatches.findIndex(d => String(d.id) === String(payload.new.id));
+          if (idx !== -1) {
+            dispatches[idx] = payload.new;
+            render();
+          }
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dispatches' }, payload => {
+          dispatches = dispatches.filter(d => String(d.id) !== String(payload.old.id));
+          selectedIds.delete(payload.old.id);
+          render();
+        })
+        .subscribe();
+    }
+
+    // ==============================================================================
+    // DATA FETCHING & RENDERING
+    // ==============================================================================
+    async function fetchDispatches() {
+      if (!supabaseClient) return;
+      try {
+        const { data, error } = await supabaseClient
+          .from('dispatches')
+          .select('*')
+          .order('id', { ascending: false })
+          .limit(150);
+
+        if (error) throw error;
+        dispatches = data || [];
+        render();
+      } catch (err) {
+        console.error('Fetch error:', err);
+        showToast('Error fetching dispatches: ' + err.message, 'error');
+      }
+    }
+
+    function render() {
+      updateMetrics();
+      renderFeed();
+      updateSelectionUI();
+      refreshLucideIcons();
+    }
+
+    function updateMetrics() {
+      const total = dispatches.length;
+      const transcribed = dispatches.filter(d => d.transcribed).length;
+      const pending = total - transcribed;
+      const savedCount = dispatches.filter(d => d.saved).length;
+
+      document.getElementById('statTotalClips').textContent = total;
+      document.getElementById('statTranscribed').textContent = transcribed;
+      document.getElementById('statPending').textContent = pending;
+      document.getElementById('statSaved').textContent = savedCount;
+      document.getElementById('statTranscribedPct').textContent = total > 0 
+        ? `${Math.round((transcribed / total) * 100)}% complete` 
+        : '0% complete';
+    }
+
+    function getFilteredDispatches() {
+      return dispatches.filter(d => {
+        if (currentFilter === 'pending' && d.transcribed) return false;
+        if (currentFilter === 'transcribed' && !d.transcribed) return false;
+        if (currentFilter === 'saved' && !d.saved) return false;
+
+        if (currentSearch) {
+          const q = currentSearch.toLowerCase();
+          const transcriptMatch = (d.transcript || '').toLowerCase().includes(q);
+          const idMatch = String(d.id || '').toLowerCase().includes(q);
+          return transcriptMatch || idMatch;
+        }
+        return true;
+      });
+    }
+
+    function renderFeed() {
+      const feedEl = document.getElementById('clipsFeed');
+      const emptyEl = document.getElementById('emptyState');
+      const filtered = getFilteredDispatches();
+
+      if (filtered.length === 0) {
+        feedEl.innerHTML = '';
+        emptyEl.style.display = 'block';
+        if (currentSearch) {
+          document.getElementById('emptyTitle').textContent = 'No matching transcripts found';
+          document.getElementById('emptyDesc').textContent = `No dispatches matched "${currentSearch}".`;
+        } else if (currentFilter === 'saved') {
+          document.getElementById('emptyTitle').textContent = 'No Saved Dispatches';
+          document.getElementById('emptyDesc').textContent = 'Click the Save button on any clip to retain it permanently.';
+        } else {
+          document.getElementById('emptyTitle').textContent = 'No Emergency Audio Slices Yet';
+          document.getElementById('emptyDesc').textContent = 'Ensure background audio slicer is running to capture live radio audio.';
+        }
+        refreshLucideIcons();
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      feedEl.innerHTML = filtered.map(clip => createClipCardHtml(clip)).join('');
+      attachFeedCardEvents();
+      refreshLucideIcons();
+    }
+
+    function createClipCardHtml(clip) {
+      const isSelected = selectedIds.has(clip.id);
+      const isSaved = !!clip.saved;
+      const createdDate = new Date(clip.created_at || Date.now());
+      const timeAgo = formatTimeAgo(createdDate);
+      const timeAbsolute = createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const durationSec = parseFloat(clip.duration || 0).toFixed(1);
+
+      let statusBadge = '';
+      if (clip.transcribing) {
+        statusBadge = `<span class="badge-pill" style="border-color: var(--primary); color: #c084fc;"><i data-lucide="loader" class="lucide-sm"></i> Transcribing...</span>`;
+      } else if (clip.transcribed) {
+        statusBadge = `<span class="badge-pill transcribed"><i data-lucide="check" class="lucide-sm"></i> Transcribed</span>`;
+      } else {
+        statusBadge = `<span class="badge-pill pending"><i data-lucide="clock" class="lucide-sm"></i> Pending</span>`;
+      }
+
+      let savedBadge = isSaved ? `<span class="badge-pill saved"><i data-lucide="bookmark" class="lucide-sm"></i> Saved</span>` : '';
+
+      let transcriptContent = '';
+      if (clip.transcribing) {
+        transcriptContent = `
+          <div style="height: 10px; background: rgba(255,255,255,0.06); border-radius: 4px; width: 85%; margin-bottom: 6px;"></div>
+          <div style="height: 10px; background: rgba(255,255,255,0.06); border-radius: 4px; width: 60%;"></div>
+        `;
+      } else if (clip.transcribed && clip.transcript) {
+        const highlighted = highlightKeywords(clip.transcript, currentSearch);
+        transcriptContent = `<div class="transcript-text">${highlighted}</div>`;
+      } else {
+        transcriptContent = `
+          <div class="transcript-empty">
+            <span>Audio isolated and awaiting transcription</span>
+            <button class="btn btn-amber btn-sm single-transcribe-btn" data-id="${clip.id}">
+              <i data-lucide="sparkles" class="lucide-sm"></i>
+              Transcribe Clip
+            </button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="dispatch-card ${isSelected ? 'selected' : ''}" id="card-${clip.id}" data-id="${clip.id}">
+          <div class="card-top-bar">
+            <div class="card-meta-left">
+              <label class="m3-checkbox">
+                <input type="checkbox" class="clip-select-check" data-id="${clip.id}" ${isSelected ? 'checked' : ''} />
+                <span class="checkbox-box"></span>
+              </label>
+              <div class="clip-time">
+                <i data-lucide="clock" class="lucide-sm" style="color: var(--on-surface-variant);"></i>
+                <span>${timeAbsolute}</span>
+                <span class="clip-time-rel">(${timeAgo})</span>
+              </div>
+              <span class="badge-pill">${durationSec}s</span>
+            </div>
+
+            <div class="card-actions-right">
+              ${savedBadge}
+              ${statusBadge}
+              <button class="card-icon-btn save-star-btn ${isSaved ? 'is-saved' : ''}" data-id="${clip.id}" title="${isSaved ? 'Unsave' : 'Save (Retain permanently)'}">
+                <i data-lucide="bookmark" class="lucide-sm"></i>
+                ${isSaved ? 'Saved' : 'Save'}
+              </button>
+              <button class="card-icon-btn delete-btn single-delete-btn" data-id="${clip.id}" title="Delete clip permanently">
+                <i data-lucide="trash-2" class="lucide-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body-grid">
+            <!-- Audio Player -->
+            <div class="audio-player-box">
+              <audio id="audio-${clip.id}" src="${clip.audio_url}" preload="none"></audio>
+              <div class="audio-main-row">
+                <button class="m3-play-btn" data-audio-id="audio-${clip.id}">
+                  <i data-lucide="play" class="lucide"></i>
+                </button>
+                <div class="audio-slider-wrap">
+                  <div class="audio-time-label">
+                    <span class="curr-time" id="curTime-${clip.id}">0:00</span>
+                    <span>${durationSec}s</span>
+                  </div>
+                  <input type="range" class="m3-slider" id="scrub-${clip.id}" value="0" min="0" max="100" />
+                </div>
+              </div>
+              <div class="audio-bottom-bar">
+                <button class="speed-chip" data-audio-id="audio-${clip.id}">1.0x</button>
+                <a href="${clip.audio_url}" target="_blank" download="dispatch_${clip.id}.mp3" class="download-link">
+                  <i data-lucide="download" class="lucide-sm"></i>
+                  .mp3
+                </a>
+              </div>
+            </div>
+
+            <!-- Transcript Container -->
+            <div class="transcript-box">
+              <div class="transcript-top">
+                <span class="transcript-title">
+                  <i data-lucide="sparkles" class="lucide-sm"></i>
+                  Whisper Transcript
+                </span>
+                ${clip.transcribed ? `
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <button class="card-icon-btn copy-btn" data-transcript="${encodeURIComponent(clip.transcript || '')}">
+                      <i data-lucide="copy" class="lucide-sm"></i>
+                      Copy
+                    </button>
+                    <button class="card-icon-btn single-transcribe-btn" data-id="${clip.id}">
+                      <i data-lucide="refresh-cw" class="lucide-sm"></i>
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+              ${transcriptContent}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function attachFeedCardEvents() {
+      document.querySelectorAll('.clip-select-check').forEach(chk => {
+        chk.addEventListener('change', e => {
+          const id = e.target.getAttribute('data-id');
+          if (e.target.checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+          const card = document.getElementById(`card-${id}`);
+          if (card) card.classList.toggle('selected', e.target.checked);
+          updateSelectionUI();
+        });
+      });
+
+      document.querySelectorAll('.save-star-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          const clip = dispatches.find(d => String(d.id) === String(id));
+          if (!clip) return;
+
+          const newSaved = !clip.saved;
+          clip.saved = newSaved;
+          render();
+
+          if (supabaseClient) {
+            try {
+              const { error } = await supabaseClient
+                .from('dispatches')
+                .update({ saved: newSaved })
+                .eq('id', id);
+              if (error) throw error;
+              showToast(newSaved ? 'Clip saved permanently!' : 'Clip unsaved.', 'success');
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        });
+      });
+
+      document.querySelectorAll('.single-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          if (confirm(`Delete dispatch clip #${id}? This will remove it from both storage and database.`)) {
+            deleteClips([id]);
+          }
+        });
+      });
+
+      document.querySelectorAll('.single-transcribe-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          transcribeClips([id]);
+        });
+      });
+
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const text = decodeURIComponent(btn.getAttribute('data-transcript'));
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Transcript copied to clipboard!', 'success');
+          });
+        });
+      });
+
+      document.querySelectorAll('.m3-play-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const audioId = btn.getAttribute('data-audio-id');
+          const audio = document.getElementById(audioId);
+          if (!audio) return;
+
+          if (currentlyPlayingAudio && currentlyPlayingAudio !== audio) {
+            currentlyPlayingAudio.pause();
+            if (currentlyPlayingBtn) {
+              currentlyPlayingBtn.innerHTML = '<i data-lucide="play" class="lucide"></i>';
+              refreshLucideIcons();
+            }
+          }
+
+          if (audio.paused) {
+            audio.play().then(() => {
+              btn.innerHTML = '<i data-lucide="pause" class="lucide"></i>';
+              currentlyPlayingAudio = audio;
+              currentlyPlayingBtn = btn;
+              refreshLucideIcons();
+            }).catch(e => {
+              showToast('Playback error: ' + e.message, 'error');
+            });
+          } else {
+            audio.pause();
+            btn.innerHTML = '<i data-lucide="play" class="lucide"></i>';
+            refreshLucideIcons();
+          }
+        });
+      });
+
+      dispatches.forEach(clip => {
+        const audio = document.getElementById(`audio-${clip.id}`);
+        const scrub = document.getElementById(`scrub-${clip.id}`);
+        const curTime = document.getElementById(`curTime-${clip.id}`);
+
+        if (audio && scrub && curTime) {
+          audio.addEventListener('timeupdate', () => {
+            if (!isNaN(audio.duration) && audio.duration > 0) {
+              scrub.value = (audio.currentTime / audio.duration) * 100;
+              curTime.textContent = formatAudioSeconds(audio.currentTime);
+            }
+          });
+
+          audio.addEventListener('ended', () => {
+            const btn = document.querySelector(`[data-audio-id="audio-${clip.id}"]`);
+            if (btn) {
+              btn.innerHTML = '<i data-lucide="play" class="lucide"></i>';
+              refreshLucideIcons();
+            }
+            scrub.value = 0;
+            curTime.textContent = '0:00';
+          });
+
+          scrub.addEventListener('input', () => {
+            if (!isNaN(audio.duration) && audio.duration > 0) {
+              audio.currentTime = (scrub.value / 100) * audio.duration;
+            }
+          });
+        }
+      });
+
+      document.querySelectorAll('.speed-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const audioId = btn.getAttribute('data-audio-id');
+          const audio = document.getElementById(audioId);
+          if (!audio) return;
+
+          const speeds = [1.0, 1.25, 1.5, 2.0];
+          const curr = audio.playbackRate || 1.0;
+          const nextIdx = (speeds.indexOf(curr) + 1) % speeds.length;
+          const nextSpeed = speeds[nextIdx];
+
+          audio.playbackRate = nextSpeed;
+          btn.textContent = `${nextSpeed}x`;
+        });
+      });
+    }
+
+    // ==============================================================================
+    // MANUAL DELETION ENGINE
+    // ==============================================================================
+    async function deleteClips(ids) {
+      if (!supabaseClient || ids.length === 0) return;
+
+      const total = ids.length;
+      showToast(`Deleting ${total} dispatch${total > 1 ? 'es' : ''}...`, 'info');
+
+      const storagePaths = [];
+      ids.forEach(id => {
+        const clip = dispatches.find(d => String(d.id) === String(id));
+        if (clip && clip.audio_url && clip.audio_url.includes('/dispatch-clips/')) {
+          const path = clip.audio_url.split('/dispatch-clips/')[1];
+          if (path) storagePaths.push(path);
+        }
+      });
+
+      if (storagePaths.length > 0) {
+        try {
+          await supabaseClient.storage.from('dispatch-clips').remove(storagePaths);
+        } catch (err) {
+          console.warn('Storage delete warning:', err);
+        }
+      }
+
+      try {
+        for (const id of ids) {
+          await supabaseClient.from('dispatches').delete().eq('id', id);
+        }
+        dispatches = dispatches.filter(d => !ids.includes(String(d.id)) && !ids.includes(d.id));
+        ids.forEach(id => selectedIds.delete(id));
+        render();
+        showToast(`Deleted ${total} dispatch${total > 1 ? 'es' : ''}.`, 'success');
+      } catch (err) {
+        console.error('Database deletion failed:', err);
+        showToast('Failed to delete from database: ' + err.message, 'error');
+      }
+    }
+
+    // ==============================================================================
+    // GROQ WHISPER TRANSCRIPTION
+    // ==============================================================================
+    async function transcribeClips(ids) {
+      if (!config.groqApiKey) {
+        showToast('Groq API Key required. Open settings.', 'error');
+        openModal();
+        return;
+      }
+
+      const total = ids.length;
+      showToast(`Transcribing ${total} clip${total > 1 ? 's' : ''} with Groq Whisper...`, 'info');
+
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        const clip = dispatches.find(d => String(d.id) === String(id));
+        if (!clip) continue;
+
+        clip.transcribing = true;
+        render();
+
+        try {
+          const audioResp = await fetch(clip.audio_url);
+          if (!audioResp.ok) throw new Error(`Could not fetch audio (${audioResp.statusText})`);
+          const audioBlob = await audioResp.blob();
+
+          const formData = new FormData();
+          formData.append('file', audioBlob, `clip_${id}.mp3`);
+          formData.append('model', DEFAULT_GROQ_MODEL);
+          formData.append('temperature', '0.0');
+          formData.append('response_format', 'json');
+
+          const groqResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${config.groqApiKey}`
+            },
+            body: formData
+          });
+
+          if (!groqResp.ok) {
+            const errData = await groqResp.json().catch(() => ({}));
+            throw new Error(errData.error?.message || `Groq API returned HTTP ${groqResp.status}`);
+          }
+
+          const result = await groqResp.json();
+          const transcriptText = result.text ? result.text.trim() : '(No speech detected)';
+
+          clip.transcript = transcriptText;
+          clip.transcribed = true;
+          clip.transcribing = false;
+
+          if (supabaseClient) {
+            await supabaseClient
+              .from('dispatches')
+              .update({
+                transcript: transcriptText,
+                transcribed: true
+              })
+              .eq('id', id);
+          }
+
+          showToast(`Transcribed clip #${id}`, 'success');
+        } catch (err) {
+          console.error(`Transcription error on clip ${id}:`, err);
+          clip.transcribing = false;
+          showToast(`Transcription failed: ${err.message}`, 'error');
+        }
+
+        render();
+      }
+
+      selectedIds.clear();
+      updateSelectionUI();
+    }
+
+    // ==============================================================================
+    // EVENT LISTENERS & UI HELPERS
+    // ==============================================================================
+    function setupEventListeners() {
+      const searchInput = document.getElementById('searchInput');
+      searchInput.addEventListener('input', e => {
+        currentSearch = e.target.value.trim();
+        render();
+      });
+
+      document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
+      document.getElementById('quick-search-btn').addEventListener('click', () => {
+        searchInput.focus();
+      });
+
+      document.querySelectorAll('.quick-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          document.querySelectorAll('.quick-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          currentFilter = chip.getAttribute('data-filter');
+          render();
+        });
+      });
+
+      document.getElementById('toggleSelectAllBtn').addEventListener('click', () => {
+        const filtered = getFilteredDispatches();
+        if (selectedIds.size === filtered.length) {
+          selectedIds.clear();
+        } else {
+          filtered.forEach(d => selectedIds.add(d.id));
+        }
+        render();
+      });
+
+      document.getElementById('transcribeSelectedBtn').addEventListener('click', () => {
+        if (selectedIds.size > 0) {
+          transcribeClips(Array.from(selectedIds));
+        }
+      });
+
+      document.getElementById('deleteSelectedBtn').addEventListener('click', () => {
+        const count = selectedIds.size;
+        if (count > 0 && confirm(`Are you sure you want to delete ${count} selected dispatch${count > 1 ? 'es' : ''}? This cannot be undone.`)) {
+          deleteClips(Array.from(selectedIds));
+        }
+      });
+
+      document.getElementById('exportBtn').addEventListener('click', exportTranscripts);
+      document.getElementById('lock-btn').addEventListener('click', lockApp);
+
+      document.getElementById('settings-btn').addEventListener('click', openModal);
+      document.getElementById('closeSettingsBtn').addEventListener('click', closeModal);
+      document.getElementById('cancelSettingsBtn').addEventListener('click', closeModal);
+      document.getElementById('saveSettingsBtn').addEventListener('click', saveConfig);
+
+      document.getElementById('settingsModal').addEventListener('click', e => {
+        if (e.target.id === 'settingsModal') closeModal();
+      });
+    }
+
+    function openModal() {
+      document.getElementById('settingsModal').classList.add('open');
+      refreshLucideIcons();
+    }
+
+    function closeModal() {
+      document.getElementById('settingsModal').classList.remove('open');
+    }
+
+    function updateSelectionUI() {
+      const transBtn = document.getElementById('transcribeSelectedBtn');
+      const delBtn = document.getElementById('deleteSelectedBtn');
+      const count = selectedIds.size;
+
+      transBtn.disabled = count === 0;
+      delBtn.disabled = count === 0;
+
+      transBtn.innerHTML = `
+        <i data-lucide="sparkles" class="lucide-sm"></i>
+        Transcribe (${count})
+      `;
+
+      delBtn.innerHTML = `
+        <i data-lucide="trash-2" class="lucide-sm"></i>
+        Delete (${count})
+      `;
+      refreshLucideIcons();
+    }
+
+    function exportTranscripts() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dispatches, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `trace_dispatch_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('Exported dispatches to JSON!', 'success');
+    }
+
+    function highlightKeywords(text, query) {
+      if (!query || !text) return escapeHtml(text || '');
+      const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escapedQuery})`, 'gi');
+      return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      if (seconds < 60) return `${Math.max(1, seconds)}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      return `${Math.floor(hours / 24)}d ago`;
+    }
+
+    function formatAudioSeconds(sec) {
+      const mins = Math.floor(sec / 60);
+      const secs = Math.floor(sec % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `m3-toast ${type}`;
+      let iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info';
+      toast.innerHTML = `<i data-lucide="${iconName}" class="lucide-sm"></i> <span>${message}</span>`;
+      container.appendChild(toast);
+      refreshLucideIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(4px)';
+        toast.style.transition = 'all 0.2s ease';
+        setTimeout(() => toast.remove(), 200);
+      }, 3000);
+    }
+
+    document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
+    window.addEventListener('DOMContentLoaded', checkAuth);
+  </script>
+</body>
+</html>
