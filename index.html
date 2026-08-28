@@ -3077,7 +3077,7 @@
         const { data, error } = await supabaseClient
           .from('dispatches')
           .select('*')
-          .order('id', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(150);
 
         if (error) throw error;
@@ -3958,8 +3958,8 @@
       showToast(`Deleting ${total} dispatch${total > 1 ? 'es' : ''}...`, 'info');
 
       try {
-        const numericIds = ids.map(id => parseInt(id, 10)).filter(n => !isNaN(n));
-        const clipsToDelete = dispatches.filter(d => ids.includes(String(d.id)));
+        const stringIds = ids.map(id => String(id));
+        const clipsToDelete = dispatches.filter(d => stringIds.includes(String(d.id)));
         
         const storagePaths = clipsToDelete
           .map(d => {
@@ -3986,12 +3986,12 @@
         const { error: dbError } = await supabaseClient
           .from('dispatches')
           .delete()
-          .in('id', numericIds);
+          .in('id', stringIds);
 
         if (dbError) throw dbError;
 
-        dispatches = dispatches.filter(d => !ids.includes(String(d.id)));
-        ids.forEach(id => selectedIds.delete(id));
+        dispatches = dispatches.filter(d => !stringIds.includes(String(d.id)));
+        stringIds.forEach(id => selectedIds.delete(id));
         render();
 
         if (total > 1) {
@@ -4048,7 +4048,7 @@
         const { error } = await supabaseClient
           .from('dispatches')
           .delete()
-          .gte('id', 0);
+          .neq('id', '');
 
         if (error) throw error;
 
@@ -4565,17 +4565,36 @@
           clip.metadata = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
           clip.metadata.manual_transcript = false;
 
-          // Automatically generate AI Incident Title & Priority
+          // Automatically generate AI Incident Title & Priority for every clip
+          let assignedTitle = null;
+          let assignedPriority = 0;
+
           if (transcriptText && transcriptText !== '(No speech detected)') {
-            const aiMeta = await generateAiTitleAndPriority(transcriptText);
-            if (aiMeta) {
-              if (aiMeta.title && !clip.metadata.manual_title) {
-                clip.metadata.title = aiMeta.title;
+            try {
+              const aiMeta = await generateAiTitleAndPriority(transcriptText);
+              if (aiMeta && aiMeta.title) {
+                assignedTitle = aiMeta.title;
+                assignedPriority = aiMeta.priority || 0;
               }
-              if (aiMeta.priority && !clip.metadata.manual_priority) {
-                clip.metadata.priority = aiMeta.priority;
-              }
+            } catch (titlingErr) {
+              console.warn(`Titling error on clip ${id}:`, titlingErr);
             }
+          }
+
+          // Guaranteed Fallback Titler: Ensure every clip always receives an informative title & priority
+          if (!assignedTitle) {
+            const fallbackMeta = generateFallbackTitle(transcriptText);
+            assignedTitle = fallbackMeta.title;
+            assignedPriority = fallbackMeta.priority || 4;
+          }
+
+          if (assignedTitle && !clip.metadata.manual_title) {
+            clip.metadata.title = assignedTitle;
+            clip.title = assignedTitle;
+          }
+          if (assignedPriority > 0 && !clip.metadata.manual_priority) {
+            clip.metadata.priority = assignedPriority;
+            clip.priority = assignedPriority;
           }
 
           if (supabaseClient) {
@@ -4612,10 +4631,13 @@
         }
 
         render();
+        if (total > 1 && i < ids.length - 1) {
+          await new Promise(r => setTimeout(r, 150));
+        }
       }
 
       if (total > 1) {
-        completeProgress('AI Transcription Complete', `Transcribed ${completedCount} of ${total} dispatches (100%).`, 2200);
+        completeProgress('AI Transcription Complete', `Transcribed and titled ${completedCount} of ${total} dispatches (100%).`, 2200);
         if (transBtn) {
           transBtn.disabled = false;
           transBtn.innerHTML = originalText;
@@ -4635,13 +4657,79 @@
       updateSelectionUI();
     }
 
+    function generateFallbackTitle(transcript) {
+      if (!transcript || transcript.trim() === '' || transcript === '(No speech detected)') {
+        return { title: 'Routine Dispatch', priority: 4 };
+      }
+      const lower = transcript.toLowerCase();
+
+      // P1 Critical Emergency Patterns
+      if (/\b(fire|structure fire|working fire|smoke showing|alarm active|flames)\b/.test(lower)) {
+        return { title: 'Structure Fire Call', priority: 1 };
+      }
+      if (/\b(shots? fired|gunshot|active shooter|armed|weapon|gun)\b/.test(lower)) {
+        return { title: 'Shots Fired Incident', priority: 1 };
+      }
+      if (/\b(pursuit|in pursuit|fleeing|evading|chase)\b/.test(lower)) {
+        return { title: 'Vehicle Pursuit', priority: 1 };
+      }
+      if (/\b(cpr|cardiac|unconscious|unresponsive|overdose|not breathing|code 3)\b/.test(lower)) {
+        return { title: 'Medical Emergency (Code 3)', priority: 1 };
+      }
+
+      // P2 High Incident Patterns
+      if (/\b(accident|collision|crash|mva|rollover|hit and run|traffic collision)\b/.test(lower)) {
+        return { title: 'Traffic Collision', priority: 2 };
+      }
+      if (/\b(ambulance|medic|ems|rescue|chest pain|fall injury|patient)\b/.test(lower)) {
+        return { title: 'EMS Medical Call', priority: 2 };
+      }
+      if (/\b(assault|fight|battery|disturbance|domestic|altercation)\b/.test(lower)) {
+        return { title: 'Disturbance / Assault', priority: 2 };
+      }
+
+      // P3 Medium Incident Patterns
+      if (/\b(burglary|break in|theft|stolen|robbery|shoplifting)\b/.test(lower)) {
+        return { title: 'Theft / Burglary Report', priority: 3 };
+      }
+      if (/\b(suspicious|prowler|trespass|unwanted subject)\b/.test(lower)) {
+        return { title: 'Suspicious Activity', priority: 3 };
+      }
+      if (/\b(welfare check|check the well-being|check well|welfare)\b/.test(lower)) {
+        return { title: 'Welfare Check', priority: 3 };
+      }
+
+      // P4 Routine Incident Patterns
+      if (/\b(traffic stop|vehicle stop|plate|tag|license)\b/.test(lower)) {
+        return { title: 'Traffic Stop', priority: 4 };
+      }
+      if (/\b(hazard|debris|animal|parking|disabled vehicle|stalled)\b/.test(lower)) {
+        return { title: 'Roadway / Vehicle Hazard', priority: 4 };
+      }
+
+      // P5 Low / Status / Radio Checks
+      if (/\b(radio check|loud and clear|10-4|10-8|10-7|in service|out of service|en route|available|copy)\b/.test(lower)) {
+        return { title: 'Radio Check / Status', priority: 5 };
+      }
+
+      // Clean first 3 to 4 words as title
+      const words = transcript.replace(/[^\w\s-]/g, '').trim().split(/\s+/).filter(Boolean);
+      if (words.length > 0) {
+        const shortTitle = words.slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        return { title: shortTitle, priority: 3 };
+      }
+
+      return { title: 'Radio Transmission', priority: 4 };
+    }
+
     async function generateAiTitleAndPriority(transcript) {
-      if (!transcript || transcript.length < 3) return null;
+      if (!transcript || transcript.length < 3 || transcript === '(No speech detected)') {
+        return generateFallbackTitle(transcript);
+      }
 
       function cleanAndParseJson(raw) {
         if (!raw) return null;
         try {
-          // Remove Markdown code fences if present
           let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
           const match = cleaned.match(/\{[\s\S]*\}/);
           if (match) {
@@ -4658,9 +4746,9 @@
         }
       }
 
-      // 1. Primary Engine: Google Gemini (Prioritized First)
+      // 1. Primary Engine: Google Gemini Flash
       if (config.geminiApiKey) {
-        const geminiModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+        const geminiModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
         for (const model of geminiModels) {
           try {
             const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
@@ -4758,7 +4846,8 @@
         }
       }
 
-      return null;
+      // 3. Fallback Heuristic
+      return generateFallbackTitle(transcript);
     }
 
     // ==============================================================================

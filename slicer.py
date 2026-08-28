@@ -18,6 +18,8 @@ import logging
 import argparse
 import subprocess
 import threading
+import secrets
+import string
 from collections import deque
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Deque, Set
@@ -259,6 +261,12 @@ def detect_alert_tones(audio: AudioSegment) -> bool:
         return False
 
 
+def generate_clip_id(length: int = 8) -> str:
+    """Generates an 8-character alphanumeric string (uppercase, lowercase, numbers, no symbols)."""
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
 # ==============================================================================
 # Supabase Dispatch Uploader & Realtime Status Broadcaster
 # ==============================================================================
@@ -336,14 +344,14 @@ class DispatchUploader:
     def upload_clip(self, mp3_bytes: bytes, duration_sec: float, metadata: Optional[dict] = None) -> Optional[dict]:
         """Uploads .mp3 clip to Supabase Storage bucket and inserts a database row."""
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        unique_id = uuid.uuid4().hex[:8]
+        unique_id = generate_clip_id(8)
         filename = f"dispatch_{timestamp_str}_{unique_id}.mp3"
         storage_path = f"audio/{filename}"
 
         if self.dry_run or not self.client:
             log("MOCK UPLOAD", f"Saved {filename} ({duration_sec:.1f}s, {len(mp3_bytes):,} bytes)", Colors.YELLOW)
             return {
-                "id": str(uuid.uuid4()),
+                "id": unique_id,
                 "audio_url": f"https://mock-storage.local/{storage_path}",
                 "duration": round(duration_sec, 2),
                 "transcribed": False,
@@ -366,6 +374,7 @@ class DispatchUploader:
 
             # 3. Insert record into Supabase table
             payload = {
+                "id": unique_id,
                 "audio_url": public_url,
                 "duration": round(duration_sec, 2),
                 "transcribed": False
@@ -384,6 +393,9 @@ class DispatchUploader:
                 except Exception as insert_err:
                     err_str = str(insert_err)
                     modified = False
+                    if "id" in err_str.lower() and "id" in payload:
+                        payload.pop("id", None)
+                        modified = True
                     if "storage_path" in err_str and "storage_path" in payload:
                         self.has_storage_path_column = False
                         payload.pop("storage_path", None)
@@ -401,7 +413,7 @@ class DispatchUploader:
 
             inserted_data = db_res.data[0] if db_res.data else payload
             tones_tag = f" {Colors.HEADER}[TONES DETECTED]{Colors.RESET}" if metadata and metadata.get("has_tones") else ""
-            log("SAVED", f"Clip indexed: ID={inserted_data.get('id', 'ok')} | {public_url}{tones_tag}", Colors.GREEN)
+            log("SAVED", f"Clip indexed: ID={inserted_data.get('id', unique_id)} | {public_url}{tones_tag}", Colors.GREEN)
             return inserted_data
 
         except Exception as e:
