@@ -2,9 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Trace Dispatch - Emergency Audio Indexer & Whisper AI</title>
   <meta name="description" content="Zero-cost real-time emergency dispatch audio indexing, playback, and AI transcription powered by Supabase and Groq Whisper." />
+  <meta name="theme-color" content="#121016" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- Lucide Radio Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d1b20'/%3E%3Cg transform='translate(4,4)' stroke='%238859ff' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.9 19.1C1 15.2 1 8.8 4.9 4.9'/%3E%3Cpath d='M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%238859ff'/%3E%3Cpath d='M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5'/%3E%3Cpath d='M19.1 4.9C23 8.8 23 15.1 19.1 19'/%3E%3C/g%3E%3C/svg%3E" />
 
   <!-- Google Fonts: Google Sans Flex & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1049,6 +1056,181 @@
     .m3-toast.success { border-left: 3px solid var(--tertiary); }
     .m3-toast.error { border-left: 3px solid var(--red); }
     .m3-toast.info { border-left: 3px solid var(--primary); }
+
+    /* ==============================================================================
+       MOBILE FIRST RESPONSIVE ENHANCEMENTS
+       ============================================================================== */
+    .mobile-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(18, 16, 22, 0.92);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--outline);
+      padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+      z-index: 900;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .mobile-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--on-surface-variant);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      min-width: 58px;
+    }
+    .mobile-nav-item i, .mobile-nav-item svg {
+      width: 18px;
+      height: 18px;
+    }
+    .mobile-nav-item:active {
+      transform: scale(0.92);
+    }
+    .mobile-nav-item.active {
+      color: var(--primary);
+    }
+    .mobile-nav-item.active svg {
+      stroke: var(--primary);
+    }
+
+    /* Mobile Floating Batch Actions Sheet */
+    .mobile-batch-bar {
+      display: none;
+      position: fixed;
+      bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+      left: 12px;
+      right: 12px;
+      background: var(--surface-container-highest);
+      border: 1px solid var(--primary);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      border-radius: var(--radius-lg);
+      padding: 10px 14px;
+      z-index: 950;
+      align-items: center;
+      justify-content: space-between;
+      animation: m3-fade 0.2s ease-out;
+    }
+    .mobile-batch-bar.active {
+      display: flex;
+    }
+    .batch-bar-info {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--on-primary-container);
+    }
+    .batch-bar-buttons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-bottom-nav {
+        display: flex;
+      }
+      .app-container {
+        padding: 14px 12px calc(80px + env(safe-area-inset-bottom, 0px));
+      }
+      .hero-header {
+        margin-bottom: 16px;
+      }
+      .hero-title {
+        font-size: 19px;
+      }
+      .hero-subtitle {
+        font-size: 11.5px;
+      }
+      .portal-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .portal-card {
+        padding: 10px 12px;
+      }
+      .card-value {
+        font-size: 18px;
+      }
+      .card-footer {
+        font-size: 10px;
+      }
+      .toolbar-section {
+        padding: 10px 12px;
+        margin-bottom: 14px;
+        border-radius: var(--radius-md);
+      }
+      .search-input {
+        font-size: 12px;
+        padding: 7px 12px 7px 32px;
+      }
+      .quick-chip {
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+      .dispatch-card {
+        padding: 12px 12px;
+        border-radius: var(--radius-md);
+      }
+      .card-top-bar {
+        margin-bottom: 8px;
+        gap: 6px;
+      }
+      .clip-time {
+        font-size: 11.5px;
+      }
+      .m3-play-btn {
+        width: 42px;
+        height: 42px;
+      }
+      .m3-play-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+      .m3-slider {
+        height: 6px;
+      }
+      .m3-slider::-webkit-slider-thumb {
+        width: 16px;
+        height: 16px;
+      }
+      .transcript-box {
+        padding: 10px 12px;
+      }
+      .transcript-text {
+        font-size: 12.5px;
+      }
+      .m3-modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .m3-modal-card {
+        border-radius: 20px 20px 0 0;
+        max-width: 100%;
+        animation: m3-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        padding-bottom: env(safe-area-inset-bottom, 12px);
+      }
+      @keyframes m3-slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+      .toast-container {
+        bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+      }
+    }
   </style>
 </head>
 <body>
@@ -1254,6 +1436,45 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile Floating Batch Actions Sheet -->
+  <div class="mobile-batch-bar" id="mobileBatchBar">
+    <div class="batch-bar-info">
+      <span id="mobileBatchCount">0 selected</span>
+    </div>
+    <div class="batch-bar-buttons">
+      <button class="btn btn-primary btn-sm" id="mBatchTranscribeBtn">
+        <i data-lucide="sparkles" class="lucide-sm"></i> Transcribe
+      </button>
+      <button class="btn btn-danger btn-sm" id="mBatchDeleteBtn">
+        <i data-lucide="trash-2" class="lucide-sm"></i> Delete
+      </button>
+    </div>
+  </div>
+
+  <!-- Floating Mobile Navigation Bar -->
+  <nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <button class="mobile-nav-item active" data-filter="all" id="mNavAll">
+      <i data-lucide="radio" class="lucide-sm"></i>
+      <span>Feed</span>
+    </button>
+    <button class="mobile-nav-item" data-filter="transcribed" id="mNavTranscribed">
+      <i data-lucide="sparkles" class="lucide-sm"></i>
+      <span>Transcripts</span>
+    </button>
+    <button class="mobile-nav-item" data-filter="saved" id="mNavSaved">
+      <i data-lucide="bookmark" class="lucide-sm"></i>
+      <span>Saved</span>
+    </button>
+    <button class="mobile-nav-item" id="mNavSearch">
+      <i data-lucide="search" class="lucide-sm"></i>
+      <span>Search</span>
+    </button>
+    <button class="mobile-nav-item" id="mNavRefresh">
+      <i data-lucide="refresh-cw" class="lucide-sm"></i>
+      <span>Refresh</span>
+    </button>
+  </nav>
 
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
@@ -2005,11 +2226,38 @@
 
       document.querySelectorAll('.quick-chip').forEach(chip => {
         chip.addEventListener('click', () => {
-          document.querySelectorAll('.quick-chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          currentFilter = chip.getAttribute('data-filter');
-          render();
+          setFilter(chip.getAttribute('data-filter'));
         });
+      });
+
+      // Mobile Bottom Nav Event Listeners
+      document.querySelectorAll('.mobile-nav-item[data-filter]').forEach(item => {
+        item.addEventListener('click', () => {
+          setFilter(item.getAttribute('data-filter'));
+        });
+      });
+
+      document.getElementById('mNavSearch').addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => searchInput.focus(), 150);
+      });
+
+      document.getElementById('mNavRefresh').addEventListener('click', () => {
+        showToast('Refreshing dispatch feed...', 'info');
+        fetchDispatches();
+      });
+
+      document.getElementById('mBatchTranscribeBtn').addEventListener('click', () => {
+        if (selectedIds.size > 0) {
+          transcribeClips(Array.from(selectedIds));
+        }
+      });
+
+      document.getElementById('mBatchDeleteBtn').addEventListener('click', () => {
+        const count = selectedIds.size;
+        if (count > 0 && confirm(`Are you sure you want to delete ${count} selected dispatch${count > 1 ? 'es' : ''}? This cannot be undone.`)) {
+          deleteClips(Array.from(selectedIds));
+        }
       });
 
       document.getElementById('toggleSelectAllBtn').addEventListener('click', () => {
@@ -2048,6 +2296,17 @@
       });
     }
 
+    function setFilter(filterVal) {
+      currentFilter = filterVal;
+      document.querySelectorAll('.quick-chip').forEach(c => {
+        c.classList.toggle('active', c.getAttribute('data-filter') === filterVal);
+      });
+      document.querySelectorAll('.mobile-nav-item[data-filter]').forEach(m => {
+        m.classList.toggle('active', m.getAttribute('data-filter') === filterVal);
+      });
+      render();
+    }
+
     function openModal() {
       document.getElementById('settingsModal').classList.add('open');
       refreshLucideIcons();
@@ -2060,6 +2319,8 @@
     function updateSelectionUI() {
       const transBtn = document.getElementById('transcribeSelectedBtn');
       const delBtn = document.getElementById('deleteSelectedBtn');
+      const batchBar = document.getElementById('mobileBatchBar');
+      const batchCount = document.getElementById('mobileBatchCount');
       const count = selectedIds.size;
 
       transBtn.disabled = count === 0;
@@ -2074,6 +2335,12 @@
         <i data-lucide="trash-2" class="lucide-sm"></i>
         Delete (${count})
       `;
+
+      if (batchBar && batchCount) {
+        batchBar.classList.toggle('active', count > 0);
+        batchCount.textContent = `${count} dispatch${count !== 1 ? 'es' : ''} selected`;
+      }
+
       refreshLucideIcons();
     }
 
