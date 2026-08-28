@@ -460,31 +460,38 @@
     }
 
     /* ==============================================================================
-       ACTION TOOLBAR & QUICK CHIPS
+       ACTION TOOLBAR, ADVANCED SEARCH & FILTER CONTROLS
        ============================================================================== */
     .toolbar-section {
       background: var(--surface);
       border: 1px solid var(--outline);
       border-radius: var(--radius-lg);
-      padding: 12px 14px;
+      padding: 14px 16px;
       margin-bottom: 18px;
       display: flex;
       flex-direction: column;
       gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
 
     .toolbar-top-row {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
+      flex-direction: column;
       gap: 10px;
-      justify-content: space-between;
+    }
+
+    .search-omnibar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
     }
 
     .search-input-wrap {
       position: relative;
       flex: 1;
-      min-width: 200px;
+      display: flex;
+      align-items: center;
     }
 
     .search-input-wrap .search-icon {
@@ -501,22 +508,157 @@
       background: var(--surface-variant);
       border: 1px solid var(--outline);
       border-radius: var(--radius-full);
-      padding: 8px 14px 8px 36px;
+      padding: 9px 88px 9px 38px;
       color: var(--on-surface);
       font-size: 13px;
-      transition: border-color 0.15s;
+      transition: all 0.15s ease;
+      height: 38px;
+      box-sizing: border-box;
     }
     .search-input:focus {
       border-color: var(--primary);
+      background: var(--surface-container-high);
+      box-shadow: 0 0 0 2px rgba(136, 89, 255, 0.2);
     }
 
+    .search-clear-btn {
+      position: absolute;
+      right: 66px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      padding: 4px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      z-index: 10;
+    }
+    .search-clear-btn:hover {
+      color: var(--on-surface);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Custom Theme Dropdown Components (Scope & Sort) */
+    .custom-dropdown-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      user-select: none;
+    }
+
+    .search-scope-dropdown-wrap {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      user-select: none;
+      z-index: 25;
+    }
+
+    .custom-dropdown-btn,
+    .search-scope-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface-container-high);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-full);
+      color: var(--on-surface-variant);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 0 10px;
+      height: 30px;
+      box-sizing: border-box;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .custom-dropdown-btn:hover, .custom-dropdown-btn.open,
+    .search-scope-btn:hover, .search-scope-btn.open {
+      border-color: var(--primary);
+      color: var(--on-surface);
+      background: var(--surface-container-highest);
+    }
+    .custom-dropdown-btn .dropdown-arrow,
+    .search-scope-btn .scope-arrow {
+      transition: transform 0.2s ease;
+    }
+    .custom-dropdown-btn.open .dropdown-arrow,
+    .search-scope-btn.open .scope-arrow {
+      transform: rotate(180deg);
+    }
+
+    .custom-dropdown-menu,
+    .search-scope-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      background: var(--surface-container-highest);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+      padding: 4px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 200;
+      animation: m3-fade 0.15s ease-out;
+    }
+    .search-scope-menu {
+      right: 0;
+      min-width: 140px;
+    }
+    .custom-dropdown-menu {
+      left: 0;
+      min-width: 175px;
+    }
+    .custom-dropdown-menu.open,
+    .search-scope-menu.open {
+      display: flex;
+    }
+
+    .dropdown-opt,
+    .scope-opt {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: none;
+      background: transparent;
+      color: var(--on-surface-variant);
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.12s ease;
+      width: 100%;
+      white-space: nowrap;
+    }
+    .dropdown-opt:hover,
+    .scope-opt:hover {
+      background: var(--surface-variant);
+      color: var(--on-surface);
+    }
+    .dropdown-opt.active,
+    .scope-opt.active {
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+      font-weight: 600;
+    }
+
+    /* Quick Filter Chips Carousel */
     .filter-chips-container {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       overflow-x: auto;
-      padding-bottom: 2px;
+      padding: 2px 0 4px;
       -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
     .filter-chips-container::-webkit-scrollbar { display: none; }
 
@@ -524,7 +666,9 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 12px;
+      padding: 6px 13px;
+      height: 32px;
+      box-sizing: border-box;
       background: var(--surface-variant);
       border: 1px solid var(--outline);
       border-radius: var(--radius-full);
@@ -540,21 +684,39 @@
     .quick-chip:hover {
       background: var(--surface-container-high);
       color: var(--on-surface);
+      border-color: rgba(255, 255, 255, 0.2);
     }
     .quick-chip.active {
       background: var(--primary-container);
       border-color: var(--primary);
       color: var(--on-primary-container);
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(136, 89, 255, 0.25);
     }
 
+    /* Controls Bar: Sort, Filter Drawer, Bulk Actions */
     .toolbar-bottom-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      padding-top: 8px;
+      gap: 10px;
+      padding-top: 10px;
       border-top: 1px solid var(--outline-variant);
+    }
+
+    .toolbar-controls-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-controls-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .bulk-actions-left {
@@ -562,6 +724,332 @@
       align-items: center;
       gap: 6px;
       flex-wrap: wrap;
+    }
+
+    .filter-drawer-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: var(--radius-full);
+      box-sizing: border-box;
+      position: relative;
+    }
+    .filter-badge-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 0 4px;
+      margin-left: 2px;
+    }
+
+    .sort-dir-btn {
+      background: var(--surface-container-high);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-full);
+      color: var(--on-surface-variant);
+      height: 30px;
+      width: 30px;
+      padding: 0;
+      box-sizing: border-box;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .sort-dir-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--surface-container-highest);
+    }
+
+    .btn-sm {
+      height: 30px;
+      padding: 0 12px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-full);
+      box-sizing: border-box;
+    }
+
+    /* Active Filters Strip */
+    .active-filters-bar {
+      display: none;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 6px 0 2px;
+      border-top: 1px dashed var(--outline-variant);
+    }
+    .active-filters-bar.has-filters {
+      display: flex;
+    }
+
+    .active-filter-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .active-filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(136, 89, 255, 0.12);
+      border: 1px solid rgba(136, 89, 255, 0.3);
+      border-radius: var(--radius-full);
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--on-primary-container);
+      font-weight: 500;
+      animation: m3-fade 0.15s ease-out;
+    }
+    .active-filter-pill button {
+      background: none;
+      border: none;
+      color: var(--on-primary-container);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 0;
+      opacity: 0.75;
+    }
+    .active-filter-pill button:hover {
+      opacity: 1;
+      color: #ffffff;
+    }
+
+    .clear-all-filters-btn {
+      background: none;
+      border: none;
+      color: var(--red);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      transition: background-color 0.15s;
+    }
+    .clear-all-filters-btn:hover {
+      background: var(--red-container);
+    }
+
+    .match-stats-text {
+      font-size: 11.5px;
+      color: var(--on-surface-variant);
+      font-family: var(--font-mono);
+    }
+
+    /* ==============================================================================
+       FILTER & SORT MODAL / BOTTOM SHEET
+       ============================================================================== */
+    .filter-sheet-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .filter-sheet-overlay.open {
+      display: flex;
+    }
+
+    .filter-sheet-card {
+      width: 100%;
+      max-width: 580px;
+      max-height: 90vh;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: m3-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .filter-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--outline);
+      background: var(--surface-container-high);
+    }
+    .filter-sheet-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--on-surface);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-sheet-body {
+      padding: 16px 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filter-group-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-segment-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .filter-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      color: var(--on-surface);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .filter-toggle-btn:hover {
+      background: var(--surface-container-highest);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .filter-toggle-btn.active {
+      background: var(--primary-container);
+      border-color: var(--primary);
+      color: var(--on-primary-container);
+      font-weight: 700;
+    }
+    .filter-toggle-btn.priority-p1.active {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+    .filter-toggle-btn.priority-p2.active {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: #f59e0b;
+      color: #fcd34d;
+    }
+    .filter-toggle-btn.priority-p3.active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: #3b82f6;
+      color: #93c5fd;
+    }
+    .filter-toggle-btn.priority-p4.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #6ee7b7;
+    }
+    .filter-toggle-btn.priority-p5.active {
+      background: rgba(107, 114, 128, 0.2);
+      border-color: #6b7280;
+      color: #d1d5db;
+    }
+    .filter-toggle-btn.tones-btn.active {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: #f43f5e;
+      color: #fda4af;
+    }
+
+    .duration-range-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .duration-number-input {
+      width: 70px;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-sm);
+      color: var(--on-surface);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 8px;
+      text-align: center;
+    }
+    .duration-number-input:focus {
+      border-color: var(--primary);
+    }
+
+    .filter-sheet-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-top: 1px solid var(--outline);
+      background: var(--surface-container-high);
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .filter-sheet-overlay {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .filter-sheet-card {
+        border-radius: 20px 20px 0 0;
+        max-width: 100%;
+        max-height: 85vh;
+        animation: m3-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        padding-bottom: env(safe-area-inset-bottom, 12px);
+      }
+      .search-omnibar-wrap {
+        flex-wrap: wrap;
+      }
+      .toolbar-bottom-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .toolbar-controls-left, .toolbar-controls-right {
+        justify-content: space-between;
+        width: 100%;
+      }
+      .search-scope-select {
+        display: none;
+      }
     }
 
     /* ==============================================================================
@@ -1574,18 +2062,57 @@
       </div>
     </header>
 
-    <!-- Action Toolbar & Quick Chips with Dynamic Badges -->
+    <!-- Action Toolbar: Advanced Omnibar, Quick Tags, Filter & Sort Controls -->
     <section class="toolbar-section">
       <div class="toolbar-top-row">
-        <div class="search-input-wrap">
-          <i data-lucide="search" class="lucide search-icon"></i>
-          <input type="text" id="searchInput" class="search-input" placeholder="Search transcripts or call names in real-time..." />
+        <!-- Omnibar with clear button, custom scope dropdown, search icon -->
+        <div class="search-omnibar-wrap">
+          <div class="search-input-wrap">
+            <i data-lucide="search" class="lucide search-icon"></i>
+            <input type="text" id="searchInput" class="search-input" placeholder="Search transcripts, incident titles, IDs (e.g. tones:yes, pri:1, &quot;fire&quot;)..." />
+            <button id="searchClearBtn" class="search-clear-btn" title="Clear search (Esc)">
+              <i data-lucide="x" class="lucide-xs"></i>
+            </button>
+            <div class="search-scope-dropdown-wrap" id="searchScopeDropdownWrap">
+              <button type="button" class="search-scope-btn" id="searchScopeBtn" title="Search Scope">
+                <span id="searchScopeLabel">All</span>
+                <i data-lucide="chevron-down" class="lucide-xs scope-arrow"></i>
+              </button>
+              <div class="search-scope-menu" id="searchScopeMenu">
+                <button type="button" class="scope-opt active" data-scope="all">
+                  <i data-lucide="layers" class="lucide-xs"></i>
+                  <span>All Fields</span>
+                </button>
+                <button type="button" class="scope-opt" data-scope="transcript">
+                  <i data-lucide="file-text" class="lucide-xs"></i>
+                  <span>Transcripts Only</span>
+                </button>
+                <button type="button" class="scope-opt" data-scope="title">
+                  <i data-lucide="tag" class="lucide-xs"></i>
+                  <span>Titles Only</span>
+                </button>
+                <button type="button" class="scope-opt" data-scope="id">
+                  <i data-lucide="hash" class="lucide-xs"></i>
+                  <span>IDs Only</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
+        <!-- Fast Filter Chips Carousel -->
         <div class="filter-chips-container">
           <button class="quick-chip active" data-filter="all">
             <i data-lucide="layers" class="lucide-sm"></i>
             All <span class="chip-count" id="countAll">(0)</span>
+          </button>
+          <button class="quick-chip" data-filter="tones">
+            <i data-lucide="bell" class="lucide-sm" style="color: #fb7185;"></i>
+            Tones <span class="chip-count" id="countTones">(0)</span>
+          </button>
+          <button class="quick-chip" data-filter="high">
+            <i data-lucide="alert-triangle" class="lucide-sm" style="color: #ef4444;"></i>
+            P1-P2 High <span class="chip-count" id="countHigh">(0)</span>
           </button>
           <button class="quick-chip" data-filter="pending">
             <i data-lucide="clock" class="lucide-sm"></i>
@@ -1599,35 +2126,213 @@
             <i data-lucide="bookmark" class="lucide-sm"></i>
             Saved <span class="chip-count" id="countSaved">(0)</span>
           </button>
-          <button class="quick-chip" data-filter="high">
-            <i data-lucide="alert-triangle" class="lucide-sm" style="color: #ef4444;"></i>
-            P1-P2 High <span class="chip-count" id="countHigh">(0)</span>
+        </div>
+      </div>
+
+      <!-- Controls Row: Filter Drawer Button, Sort Selector, Direction Toggle, Bulk Actions, Export -->
+      <div class="toolbar-bottom-row">
+        <div class="toolbar-controls-left">
+          <button class="btn btn-tonal btn-sm filter-drawer-btn" id="openFilterDrawerBtn" title="Open Multi-Dimensional Filter Drawer">
+            <i data-lucide="sliders-horizontal" class="lucide-sm"></i>
+            <span>Filters</span>
+            <span class="filter-badge-count" id="filterActiveBadge" style="display: none;">0</span>
+          </button>
+
+          <div class="custom-dropdown-wrap" id="sortDropdownWrap">
+            <button type="button" class="custom-dropdown-btn" id="sortDropdownBtn" title="Sort Dispatches">
+              <i data-lucide="arrow-down-narrow-wide" class="lucide-xs"></i>
+              <span id="sortDropdownLabel">Newest First</span>
+              <i data-lucide="chevron-down" class="lucide-xs dropdown-arrow"></i>
+            </button>
+            <div class="custom-dropdown-menu" id="sortDropdownMenu">
+              <button type="button" class="dropdown-opt active" data-sort="created_at_desc">
+                <i data-lucide="clock" class="lucide-xs"></i>
+                <span>Newest First</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="created_at_asc">
+                <i data-lucide="history" class="lucide-xs"></i>
+                <span>Oldest First</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="duration_desc">
+                <i data-lucide="timer" class="lucide-xs"></i>
+                <span>Longest Audio</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="duration_asc">
+                <i data-lucide="zap" class="lucide-xs"></i>
+                <span>Shortest Audio</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="priority_desc">
+                <i data-lucide="alert-triangle" class="lucide-xs"></i>
+                <span>Highest Priority</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="priority_asc">
+                <i data-lucide="shield" class="lucide-xs"></i>
+                <span>Lowest Priority</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="title_asc">
+                <i data-lucide="arrow-down-a-z" class="lucide-xs"></i>
+                <span>Title (A → Z)</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="title_desc">
+                <i data-lucide="arrow-up-z-a" class="lucide-xs"></i>
+                <span>Title (Z → A)</span>
+              </button>
+              <button type="button" class="dropdown-opt" data-sort="transcript_desc">
+                <i data-lucide="file-text" class="lucide-xs"></i>
+                <span>Longest Transcript</span>
+              </button>
+            </div>
+          </div>
+
+          <button class="sort-dir-btn" id="sortDirToggleBtn" title="Reverse Sort Direction">
+            <i data-lucide="arrow-down-up" class="lucide-xs"></i>
+          </button>
+        </div>
+
+        <div class="toolbar-controls-right">
+          <div class="bulk-actions-left">
+            <button class="btn btn-tonal btn-sm" id="toggleSelectAllBtn" title="Select All Visible Dispatches">
+              <i data-lucide="check-square" class="lucide-sm"></i>
+              <span id="selectAllBtnText">Select All</span>
+            </button>
+            <button class="btn btn-primary btn-sm" id="transcribeSelectedBtn" disabled>
+              <i data-lucide="sparkles" class="lucide-sm"></i>
+              Transcribe (0)
+            </button>
+            <button class="btn btn-danger btn-sm" id="deleteSelectedBtn" disabled title="Delete selected clips from database and storage">
+              <i data-lucide="trash-2" class="lucide-sm"></i>
+              Delete (0)
+            </button>
+          </div>
+
+          <button class="btn btn-tonal btn-sm" id="exportBtn" title="Export Current List to JSON">
+            <i data-lucide="download" class="lucide-sm"></i>
+            Export
           </button>
         </div>
       </div>
 
-      <div class="toolbar-bottom-row">
-        <div class="bulk-actions-left">
-          <button class="btn btn-tonal btn-sm" id="toggleSelectAllBtn">
-            <i data-lucide="check-square" class="lucide-sm"></i>
-            Select All
-          </button>
-          <button class="btn btn-primary btn-sm" id="transcribeSelectedBtn" disabled>
-            <i data-lucide="sparkles" class="lucide-sm"></i>
-            Transcribe (0)
-          </button>
-          <button class="btn btn-danger btn-sm" id="deleteSelectedBtn" disabled title="Delete selected clips from database and storage">
-            <i data-lucide="trash-2" class="lucide-sm"></i>
-            Delete (0)
-          </button>
-        </div>
-
-        <button class="btn btn-tonal btn-sm" id="exportBtn" title="Export JSON">
-          <i data-lucide="download" class="lucide-sm"></i>
-          Export
-        </button>
+      <!-- Active Filters Removable Tags Strip -->
+      <div class="active-filters-bar" id="activeFiltersBar">
+        <span class="active-filter-label"><i data-lucide="filter" class="lucide-xs"></i> Active:</span>
+        <div id="activeFilterTagsList" style="display: inline-flex; flex-wrap: wrap; gap: 4px;"></div>
+        <button class="clear-all-filters-btn" id="clearAllFiltersBtn">Reset All</button>
+        <span class="match-stats-text" id="matchStatsText" style="margin-left: auto;"></span>
       </div>
     </section>
+
+    <!-- Filter & Sort Drawer Modal (Responsive Mobile Bottom-Sheet & Desktop Dialog) -->
+    <div class="filter-sheet-overlay" id="filterSheetOverlay">
+      <div class="filter-sheet-card" id="filterSheetCard">
+        <div class="filter-sheet-header">
+          <div class="filter-sheet-title">
+            <i data-lucide="sliders-horizontal" class="lucide-sm" style="color: var(--primary);"></i>
+            <span>Filter & Sort Dispatches</span>
+          </div>
+          <button class="control-btn" id="closeFilterSheetBtn" style="padding: 4px 8px;">
+            <i data-lucide="x" class="lucide-sm"></i>
+          </button>
+        </div>
+
+        <div class="filter-sheet-body">
+          <!-- Tone Alerts -->
+          <div class="filter-group">
+            <label class="filter-group-title">
+              <i data-lucide="bell" class="lucide-xs" style="color: #fb7185;"></i>
+              Emergency Alert Tones
+            </label>
+            <div class="filter-segment-grid">
+              <button class="filter-toggle-btn tones-btn active" data-tones="all">All Dispatches</button>
+              <button class="filter-toggle-btn tones-btn" data-tones="tones_only">
+                <i data-lucide="bell" class="lucide-xs"></i> 3-Beep Tones Only
+              </button>
+              <button class="filter-toggle-btn tones-btn" data-tones="no_tones">Standard (No Tones)</button>
+            </div>
+          </div>
+
+          <!-- Priority Levels -->
+          <div class="filter-group">
+            <label class="filter-group-title">
+              <i data-lucide="alert-triangle" class="lucide-xs" style="color: #f59e0b;"></i>
+              Incident Priority Levels (Multi-Select)
+            </label>
+            <div class="filter-segment-grid">
+              <button class="filter-toggle-btn priority-p1" data-priority-val="1">P1 - Critical</button>
+              <button class="filter-toggle-btn priority-p2" data-priority-val="2">P2 - High</button>
+              <button class="filter-toggle-btn priority-p3" data-priority-val="3">P3 - Medium</button>
+              <button class="filter-toggle-btn priority-p4" data-priority-val="4">P4 - Routine</button>
+              <button class="filter-toggle-btn priority-p5" data-priority-val="5">P5 - Low / Info</button>
+              <button class="filter-toggle-btn" data-priority-val="0">Unassigned</button>
+            </div>
+          </div>
+
+          <!-- Audio Length / Duration -->
+          <div class="filter-group">
+            <label class="filter-group-title">
+              <i data-lucide="clock" class="lucide-xs" style="color: var(--primary);"></i>
+              Audio Length & Duration
+            </label>
+            <div class="filter-segment-grid">
+              <button class="filter-toggle-btn duration-preset-btn active" data-duration="all">All Lengths</button>
+              <button class="filter-toggle-btn duration-preset-btn" data-duration="under5">&lt; 5s (Short)</button>
+              <button class="filter-toggle-btn duration-preset-btn" data-duration="5to15">5s - 15s (Standard)</button>
+              <button class="filter-toggle-btn duration-preset-btn" data-duration="15to30">15s - 30s (Long)</button>
+              <button class="filter-toggle-btn duration-preset-btn" data-duration="over30">&gt; 30s (Extended)</button>
+              <button class="filter-toggle-btn duration-preset-btn" data-duration="custom">Custom Range</button>
+            </div>
+            <div class="duration-range-box" id="customDurationRangeBox" style="display: none;">
+              <span style="font-size: 12px; color: var(--on-surface-variant);">Min:</span>
+              <input type="number" id="customMinDur" class="duration-number-input" min="0" max="600" value="0" />
+              <span style="font-size: 12px; color: var(--on-surface-variant);">s &nbsp;&nbsp; Max:</span>
+              <input type="number" id="customMaxDur" class="duration-number-input" min="1" max="600" value="60" />
+              <span style="font-size: 12px; color: var(--on-surface-variant);">s</span>
+            </div>
+          </div>
+
+          <!-- Time Range / Recency -->
+          <div class="filter-group">
+            <label class="filter-group-title">
+              <i data-lucide="calendar" class="lucide-xs" style="color: #06b6d4;"></i>
+              Time / Date Range
+            </label>
+            <div class="filter-segment-grid">
+              <button class="filter-toggle-btn timerange-btn active" data-timerange="all">All Time</button>
+              <button class="filter-toggle-btn timerange-btn" data-timerange="1h">Last 1 Hour</button>
+              <button class="filter-toggle-btn timerange-btn" data-timerange="6h">Last 6 Hours</button>
+              <button class="filter-toggle-btn timerange-btn" data-timerange="24h">Today (24h)</button>
+              <button class="filter-toggle-btn timerange-btn" data-timerange="7d">Past 7 Days</button>
+            </div>
+          </div>
+
+          <!-- Transcription & Metadata Status -->
+          <div class="filter-group">
+            <label class="filter-group-title">
+              <i data-lucide="sparkles" class="lucide-xs" style="color: #10b981;"></i>
+              Transcription & Classification
+            </label>
+            <div class="filter-segment-grid">
+              <button class="filter-toggle-btn status-btn active" data-status="all">All Statuses</button>
+              <button class="filter-toggle-btn status-btn" data-status="transcribed">Transcribed</button>
+              <button class="filter-toggle-btn status-btn" data-status="pending">Pending AI</button>
+              <button class="filter-toggle-btn status-btn" data-status="saved">Saved Only</button>
+              <button class="filter-toggle-btn status-btn" data-status="titled">AI Named</button>
+              <button class="filter-toggle-btn status-btn" data-status="manual">Manually Named</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-sheet-footer">
+          <button class="btn btn-tonal" id="resetFiltersSheetBtn">
+            <i data-lucide="rotate-ccw" class="lucide-sm"></i>
+            Reset All
+          </button>
+          <button class="btn btn-primary" id="applyFiltersSheetBtn">
+            <i data-lucide="check" class="lucide-sm"></i>
+            <span id="applyFiltersBtnText">Apply Filters</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Feed Container -->
     <section id="clipsFeed" class="clips-feed"></section>
@@ -1745,8 +2450,25 @@
     let supabaseClient = null;
     let dispatches = [];
     let selectedIds = new Set();
-    let currentFilter = 'all';
+    let currentFilter = 'all'; // 'all', 'tones', 'high', 'pending', 'transcribed', 'saved'
     let currentSearch = '';
+    let searchScope = 'all'; // 'all', 'transcript', 'title', 'id'
+
+    let filterOptions = {
+      tones: 'all', // 'all', 'tones_only', 'no_tones'
+      priorities: new Set(), // Set of numbers 1..5, 0 for unassigned
+      duration: 'all', // 'all', 'under5', '5to15', '15to30', 'over30', 'custom'
+      customMinDuration: 0,
+      customMaxDuration: 60,
+      timeRange: 'all', // 'all', '1h', '6h', '24h', '7d'
+      status: 'all' // 'all', 'transcribed', 'pending', 'saved', 'titled', 'manual'
+    };
+
+    let currentSort = {
+      field: 'created_at', // 'created_at', 'duration', 'priority', 'title', 'transcript'
+      order: 'desc' // 'asc', 'desc'
+    };
+
     let currentlyPlayingAudio = null;
     let currentlyPlayingBtn = null;
     let realtimeChannel = null;
@@ -2106,6 +2828,7 @@
       updateMetrics();
       renderFeed();
       updateSelectionUI();
+      updateActiveFiltersUI();
       refreshLucideIcons();
     }
 
@@ -2114,6 +2837,10 @@
       const transcribed = dispatches.filter(d => d.transcribed).length;
       const pending = total - transcribed;
       const savedCount = dispatches.filter(d => d.saved).length;
+      const tonesCount = dispatches.filter(d => {
+        const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
+        return !!(meta.has_tones || meta.tones || d.has_tones);
+      }).length;
       const highCount = dispatches.filter(d => {
         const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
         const p = parseInt(meta.priority || d.priority || 0, 10);
@@ -2129,6 +2856,7 @@
       setTxt('countPending', `(${pending})`);
       setTxt('countTranscribed', `(${transcribed})`);
       setTxt('countSaved', `(${savedCount})`);
+      setTxt('countTones', `(${tonesCount})`);
       setTxt('countHigh', `(${highCount})`);
 
       setTxt('mCountAll', total);
@@ -2136,29 +2864,292 @@
       setTxt('mCountSaved', savedCount);
     }
 
+    // ==============================================================================
+    // ADVANCED SEARCH SYNTAX PARSER
+    // ==============================================================================
+    function parseSearchQuery(query) {
+      if (!query) return { textTerms: [], exactPhrases: [], excludedTerms: [], filters: {} };
+
+      const exactPhrases = [];
+      const excludedTerms = [];
+      const textTerms = [];
+      const filters = {};
+
+      // 1. Extract exact phrases in double quotes "..."
+      let cleanQuery = query.replace(/"([^"]+)"/g, (match, phrase) => {
+        if (phrase.trim()) exactPhrases.push(phrase.trim().toLowerCase());
+        return '';
+      });
+
+      const tokens = cleanQuery.trim().split(/\s+/).filter(Boolean);
+
+      tokens.forEach(tok => {
+        const lower = tok.toLowerCase();
+        
+        // Smart operator parsing
+        if (lower.startsWith('tones:') || lower.startsWith('tone:') || lower.startsWith('t:')) {
+          const val = lower.split(':')[1];
+          filters.tones = (val === 'yes' || val === 'true' || val === '1' || val === 'on') ? 'tones_only' : 'no_tones';
+        } else if (lower.startsWith('pri:') || lower.startsWith('p:') || lower.startsWith('priority:')) {
+          const val = lower.split(':')[1];
+          const pNums = val.split(',').map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n));
+          if (pNums.length > 0) filters.priorities = new Set(pNums);
+        } else if (lower.startsWith('dur:') || lower.startsWith('len:') || lower.startsWith('duration:') || lower.startsWith('length:')) {
+          const val = lower.split(':')[1].replace(/s$/i, '');
+          if (val.startsWith('>=')) filters.minDuration = parseFloat(val.slice(2));
+          else if (val.startsWith('>')) filters.minDuration = parseFloat(val.slice(1));
+          else if (val.startsWith('<=')) filters.maxDuration = parseFloat(val.slice(2));
+          else if (val.startsWith('<')) filters.maxDuration = parseFloat(val.slice(1));
+          else if (val.includes('..')) {
+            const parts = val.split('..');
+            filters.minDuration = parseFloat(parts[0]) || 0;
+            filters.maxDuration = parseFloat(parts[1]) || 999;
+          } else {
+            filters.minDuration = parseFloat(val) || 0;
+          }
+        } else if (lower.startsWith('status:')) {
+          const val = lower.split(':')[1];
+          filters.status = val;
+        } else if (lower.startsWith('saved:') || lower.startsWith('save:')) {
+          const val = lower.split(':')[1];
+          filters.saved = (val === 'yes' || val === 'true' || val === '1');
+        } else if (lower.startsWith('-') && lower.length > 1) {
+          excludedTerms.push(lower.slice(1));
+        } else {
+          textTerms.push(lower);
+        }
+      });
+
+      return { textTerms, exactPhrases, excludedTerms, filters };
+    }
+
+    // ==============================================================================
+    // MULTI-DIMENSIONAL FILTERING & SORTING ENGINE
+    // ==============================================================================
     function getFilteredDispatches() {
-      return dispatches.filter(d => {
+      const parsedSearch = parseSearchQuery(currentSearch);
+      const now = Date.now();
+
+      const filtered = dispatches.filter(d => {
         const meta = (typeof d.metadata === 'object' && d.metadata !== null) ? d.metadata : {};
         const priority = parseInt(meta.priority || d.priority || 0, 10);
+        const hasTones = !!(meta.has_tones || meta.tones || d.has_tones);
+        const duration = parseFloat(d.duration || 0);
+        const title = (meta.title || d.title || 'Transcript').toLowerCase();
+        const transcript = (d.transcript || '').toLowerCase();
+        const idStr = String(d.id || '');
+        const createdMs = new Date(d.created_at || now).getTime();
 
+        // 1. Quick Chip Filter (All, Tones, High, Pending, Transcribed, Saved)
         if (currentFilter === 'pending' && d.transcribed) return false;
         if (currentFilter === 'transcribed' && !d.transcribed) return false;
         if (currentFilter === 'saved' && !d.saved) return false;
-        if (currentFilter === 'p1' && priority !== 1) return false;
-        if (currentFilter === 'p2' && priority !== 2) return false;
+        if (currentFilter === 'tones' && !hasTones) return false;
         if (currentFilter === 'high' && (priority !== 1 && priority !== 2)) return false;
 
-        if (currentSearch) {
-          const q = currentSearch.toLowerCase();
-          const title = (meta.title || d.title || 'Transcript').toLowerCase();
-          const titleMatch = title.includes(q);
-          const transcriptMatch = (d.transcript || '').toLowerCase().includes(q);
-          const idMatch = String(d.id || '').toLowerCase().includes(q);
-          const priorityMatch = (q.startsWith('p') || q.startsWith('pri')) && String(priority) === q.replace(/\D/g, '');
-          return titleMatch || transcriptMatch || idMatch || priorityMatch;
+        // 2. Multi-Dimensional Filter: Tones
+        if (filterOptions.tones === 'tones_only' && !hasTones) return false;
+        if (filterOptions.tones === 'no_tones' && hasTones) return false;
+
+        // 3. Multi-Dimensional Filter: Priorities
+        if (filterOptions.priorities.size > 0 && !filterOptions.priorities.has(priority)) return false;
+
+        // 4. Multi-Dimensional Filter: Audio Duration
+        if (filterOptions.duration === 'under5' && duration >= 5.0) return false;
+        if (filterOptions.duration === '5to15' && (duration < 5.0 || duration > 15.0)) return false;
+        if (filterOptions.duration === '15to30' && (duration < 15.0 || duration > 30.0)) return false;
+        if (filterOptions.duration === 'over30' && duration <= 30.0) return false;
+        if (filterOptions.duration === 'custom') {
+          if (duration < filterOptions.customMinDuration || duration > filterOptions.customMaxDuration) return false;
         }
+
+        // 5. Multi-Dimensional Filter: Time / Date Range
+        if (filterOptions.timeRange === '1h' && (now - createdMs) > 3600 * 1000) return false;
+        if (filterOptions.timeRange === '6h' && (now - createdMs) > 6 * 3600 * 1000) return false;
+        if (filterOptions.timeRange === '24h' && (now - createdMs) > 24 * 3600 * 1000) return false;
+        if (filterOptions.timeRange === '7d' && (now - createdMs) > 7 * 24 * 3600 * 1000) return false;
+
+        // 6. Multi-Dimensional Filter: Status & Classification
+        if (filterOptions.status === 'transcribed' && !d.transcribed) return false;
+        if (filterOptions.status === 'pending' && d.transcribed) return false;
+        if (filterOptions.status === 'saved' && !d.saved) return false;
+        if (filterOptions.status === 'titled' && (!meta.title || meta.manual_title)) return false;
+        if (filterOptions.status === 'manual' && !meta.manual_title) return false;
+
+        // 7. Search Query Inline Operators (tones:yes, pri:1, dur:>10)
+        if (parsedSearch.filters.tones && parsedSearch.filters.tones === 'tones_only' && !hasTones) return false;
+        if (parsedSearch.filters.tones && parsedSearch.filters.tones === 'no_tones' && hasTones) return false;
+        if (parsedSearch.filters.priorities && !parsedSearch.filters.priorities.has(priority)) return false;
+        if (parsedSearch.filters.minDuration !== undefined && duration < parsedSearch.filters.minDuration) return false;
+        if (parsedSearch.filters.maxDuration !== undefined && duration > parsedSearch.filters.maxDuration) return false;
+        if (parsedSearch.filters.status === 'transcribed' && !d.transcribed) return false;
+        if (parsedSearch.filters.status === 'pending' && d.transcribed) return false;
+        if (parsedSearch.filters.saved !== undefined && d.saved !== parsedSearch.filters.saved) return false;
+
+        // 8. Search Term Matching with Scopes
+        let targetText = '';
+        if (searchScope === 'transcript') {
+          targetText = transcript;
+        } else if (searchScope === 'title') {
+          targetText = title;
+        } else if (searchScope === 'id') {
+          targetText = idStr;
+        } else {
+          targetText = `${title} ${transcript} ${idStr} p${priority} priority${priority}`;
+        }
+
+        // Excluded terms (-)
+        for (const exc of parsedSearch.excludedTerms) {
+          if (targetText.includes(exc)) return false;
+        }
+
+        // Exact phrases ("...")
+        for (const phrase of parsedSearch.exactPhrases) {
+          if (!targetText.includes(phrase)) return false;
+        }
+
+        // Keyword terms
+        for (const term of parsedSearch.textTerms) {
+          if (!targetText.includes(term)) return false;
+        }
+
         return true;
       });
+
+      // Sort filtered results
+      filtered.sort((a, b) => {
+        const metaA = (typeof a.metadata === 'object' && a.metadata !== null) ? a.metadata : {};
+        const metaB = (typeof b.metadata === 'object' && b.metadata !== null) ? b.metadata : {};
+
+        if (currentSort.field === 'duration') {
+          const valA = parseFloat(a.duration || 0);
+          const valB = parseFloat(b.duration || 0);
+          return currentSort.order === 'asc' ? valA - valB : valB - valA;
+        } else if (currentSort.field === 'priority') {
+          // Priority 1 is highest, 5 is lowest, 0 is unassigned
+          const pA = parseInt(metaA.priority || a.priority || 0, 10);
+          const pB = parseInt(metaB.priority || b.priority || 0, 10);
+          const effectivePA = pA === 0 ? 999 : pA;
+          const effectivePB = pB === 0 ? 999 : pB;
+          return currentSort.order === 'asc' ? effectivePB - effectivePA : effectivePA - effectivePB;
+        } else if (currentSort.field === 'title') {
+          const titleA = (metaA.title || a.title || 'Transcript').toLowerCase();
+          const titleB = (metaB.title || b.title || 'Transcript').toLowerCase();
+          return currentSort.order === 'asc' ? titleA.localeCompare(titleB) : titleB.localeCompare(titleA);
+        } else if (currentSort.field === 'transcript') {
+          const lenA = (a.transcript || '').length;
+          const lenB = (b.transcript || '').length;
+          return currentSort.order === 'asc' ? lenA - lenB : lenB - lenA;
+        } else {
+          // Default: created_at / id
+          const timeA = new Date(a.created_at || 0).getTime() || a.id;
+          const timeB = new Date(b.created_at || 0).getTime() || b.id;
+          return currentSort.order === 'asc' ? timeA - timeB : timeB - timeA;
+        }
+      });
+
+      return filtered;
+    }
+
+    function updateActiveFiltersUI() {
+      const bar = document.getElementById('activeFiltersBar');
+      const list = document.getElementById('activeFilterTagsList');
+      const badge = document.getElementById('filterActiveBadge');
+      const matchStats = document.getElementById('matchStatsText');
+      const applyBtnText = document.getElementById('applyFiltersBtnText');
+      const clearSearchBtn = document.getElementById('searchClearBtn');
+
+      if (clearSearchBtn) {
+        clearSearchBtn.style.display = currentSearch ? 'flex' : 'none';
+      }
+
+      const tags = [];
+      let filterCount = 0;
+
+      if (filterOptions.tones === 'tones_only') {
+        tags.push({ label: '🔔 Tones Only', action: () => { filterOptions.tones = 'all'; syncFilterSheetUI(); render(); } });
+        filterCount++;
+      } else if (filterOptions.tones === 'no_tones') {
+        tags.push({ label: 'No Tones', action: () => { filterOptions.tones = 'all'; syncFilterSheetUI(); render(); } });
+        filterCount++;
+      }
+
+      if (filterOptions.priorities.size > 0) {
+        const pLabels = Array.from(filterOptions.priorities).map(p => p === 0 ? 'Unassigned' : `P${p}`).join(', ');
+        tags.push({ label: `Priority: ${pLabels}`, action: () => { filterOptions.priorities.clear(); syncFilterSheetUI(); render(); } });
+        filterCount++;
+      }
+
+      if (filterOptions.duration !== 'all') {
+        let durLabel = 'Duration: ';
+        if (filterOptions.duration === 'under5') durLabel += '< 5s';
+        else if (filterOptions.duration === '5to15') durLabel += '5-15s';
+        else if (filterOptions.duration === '15to30') durLabel += '15-30s';
+        else if (filterOptions.duration === 'over30') durLabel += '> 30s';
+        else if (filterOptions.duration === 'custom') durLabel += `${filterOptions.customMinDuration}s-${filterOptions.customMaxDuration}s`;
+        tags.push({ label: durLabel, action: () => { filterOptions.duration = 'all'; syncFilterSheetUI(); render(); } });
+        filterCount++;
+      }
+
+      if (filterOptions.timeRange !== 'all') {
+        tags.push({ label: `Time: ${filterOptions.timeRange}`, action: () => { filterOptions.timeRange = 'all'; syncFilterSheetUI(); render(); } });
+        filterCount++;
+      }
+
+      if (filterOptions.status !== 'all') {
+        tags.push({ label: `Status: ${filterOptions.status}`, action: () => { filterOptions.status = 'all'; syncFilterSheetUI(); render(); } });
+        filterCount++;
+      }
+
+      if (searchScope !== 'all') {
+        const scopeLabel = searchScope === 'transcript' ? 'Transcripts' : searchScope === 'title' ? 'Titles' : searchScope === 'id' ? 'IDs' : searchScope;
+        tags.push({ label: `Scope: ${scopeLabel}`, action: () => { setSearchScope('all'); } });
+      }
+
+      if (currentSort.field !== 'created_at' || currentSort.order !== 'desc') {
+        tags.push({ label: `Sort: ${currentSort.field} (${currentSort.order})`, action: () => { setSort('created_at', 'desc'); } });
+      }
+
+      if (badge) {
+        if (filterCount > 0) {
+          badge.textContent = filterCount;
+          badge.style.display = 'inline-flex';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+
+      if (list) {
+        list.innerHTML = tags.map((tag, idx) => `
+          <span class="active-filter-pill">
+            <span>${tag.label}</span>
+            <button type="button" data-tag-idx="${idx}" title="Remove filter">
+              <i data-lucide="x" class="lucide-xs"></i>
+            </button>
+          </span>
+        `).join('');
+
+        list.querySelectorAll('button[data-tag-idx]').forEach(btn => {
+          btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute('data-tag-idx'), 10);
+            if (tags[idx] && tags[idx].action) tags[idx].action();
+          });
+        });
+      }
+
+      const filtered = getFilteredDispatches();
+      if (bar) {
+        bar.classList.toggle('has-filters', tags.length > 0 || currentSearch.length > 0);
+      }
+
+      if (matchStats) {
+        matchStats.textContent = `Showing ${filtered.length} of ${dispatches.length}`;
+      }
+
+      if (applyBtnText) {
+        applyBtnText.textContent = `Apply Filters (${filtered.length} Matches)`;
+      }
     }
 
     function renderFeed() {
@@ -3086,51 +4077,260 @@
     // ==============================================================================
     // EVENT LISTENERS & UI HELPERS
     // ==============================================================================
+    // ==============================================================================
+    // EVENT LISTENERS, FILTER SHEET & UI HELPERS
+    // ==============================================================================
     function setupEventListeners() {
       const searchInput = document.getElementById('searchInput');
-      searchInput.addEventListener('input', e => {
-        currentSearch = e.target.value.trim();
-        render();
-      });
+      const searchClearBtn = document.getElementById('searchClearBtn');
+      const searchScopeBtn = document.getElementById('searchScopeBtn');
+      const searchScopeMenu = document.getElementById('searchScopeMenu');
+      const sortSelect = document.getElementById('sortSelect');
+      const sortDirToggleBtn = document.getElementById('sortDirToggleBtn');
+      const openFilterDrawerBtn = document.getElementById('openFilterDrawerBtn');
+      const filterSheetOverlay = document.getElementById('filterSheetOverlay');
+      const closeFilterSheetBtn = document.getElementById('closeFilterSheetBtn');
+      const resetFiltersSheetBtn = document.getElementById('resetFiltersSheetBtn');
+      const applyFiltersSheetBtn = document.getElementById('applyFiltersSheetBtn');
+      const clearAllFiltersBtn = document.getElementById('clearAllFiltersBtn');
 
-      document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-          e.preventDefault();
-          searchInput.focus();
-        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
-          e.preventDefault();
-          lockApp();
-        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-          e.preventDefault();
-          openModal();
-        }
-      });
+      // 1. Search Input & Omnibar Handlers
+      if (searchInput) {
+        searchInput.addEventListener('input', e => {
+          currentSearch = e.target.value;
+          render();
+        });
+      }
 
-      // Close open dropdowns on background click
-      document.addEventListener('click', () => {
-        document.querySelectorAll('.speed-dropdown-menu.open').forEach(m => m.classList.remove('open'));
-      });
+      if (searchClearBtn) {
+        searchClearBtn.addEventListener('click', () => {
+          currentSearch = '';
+          if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+          }
+          render();
+        });
+      }
 
-      document.getElementById('quick-search-btn').addEventListener('click', () => {
-        searchInput.focus();
-      });
+      // Custom Search Scope Dropdown
+      if (searchScopeBtn && searchScopeMenu) {
+        searchScopeBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const isOpen = searchScopeMenu.classList.contains('open');
+          searchScopeMenu.classList.toggle('open', !isOpen);
+          searchScopeBtn.classList.toggle('open', !isOpen);
+        });
 
+        document.querySelectorAll('.scope-opt').forEach(opt => {
+          opt.addEventListener('click', e => {
+            e.stopPropagation();
+            const scopeVal = opt.getAttribute('data-scope') || 'all';
+            setSearchScope(scopeVal);
+            searchScopeMenu.classList.remove('open');
+            searchScopeBtn.classList.remove('open');
+          });
+        });
+      }
+
+      // 2. Custom Sort Dropdown & Direction Toggle
+      const sortDropdownBtn = document.getElementById('sortDropdownBtn');
+      const sortDropdownMenu = document.getElementById('sortDropdownMenu');
+
+      if (sortDropdownBtn && sortDropdownMenu) {
+        sortDropdownBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const isOpen = sortDropdownMenu.classList.contains('open');
+          if (searchScopeMenu) searchScopeMenu.classList.remove('open');
+          if (searchScopeBtn) searchScopeBtn.classList.remove('open');
+          sortDropdownMenu.classList.toggle('open', !isOpen);
+          sortDropdownBtn.classList.toggle('open', !isOpen);
+        });
+
+        document.querySelectorAll('#sortDropdownMenu .dropdown-opt').forEach(opt => {
+          opt.addEventListener('click', e => {
+            e.stopPropagation();
+            const val = opt.getAttribute('data-sort') || 'created_at_desc';
+            const lastUnderscore = val.lastIndexOf('_');
+            const field = val.substring(0, lastUnderscore);
+            const order = val.substring(lastUnderscore + 1);
+            setSort(field, order);
+            sortDropdownMenu.classList.remove('open');
+            sortDropdownBtn.classList.remove('open');
+          });
+        });
+      }
+
+      if (sortDirToggleBtn) {
+        sortDirToggleBtn.addEventListener('click', () => {
+          const newOrder = currentSort.order === 'asc' ? 'desc' : 'asc';
+          setSort(currentSort.field, newOrder);
+        });
+      }
+
+      // 3. Quick Chips & Mobile Nav
       document.querySelectorAll('.quick-chip').forEach(chip => {
         chip.addEventListener('click', () => {
           setFilter(chip.getAttribute('data-filter'));
         });
       });
 
-      // Mobile Bottom Nav Event Listeners
       document.querySelectorAll('.mobile-nav-item[data-filter]').forEach(item => {
         item.addEventListener('click', () => {
           setFilter(item.getAttribute('data-filter'));
         });
       });
 
+      // 4. Filter Drawer Modal Open / Close / Toggle Handlers
+      if (openFilterDrawerBtn) {
+        openFilterDrawerBtn.addEventListener('click', () => {
+          openFilterSheet();
+        });
+      }
+
+      if (closeFilterSheetBtn) {
+        closeFilterSheetBtn.addEventListener('click', () => {
+          closeFilterSheet();
+        });
+      }
+
+      if (filterSheetOverlay) {
+        filterSheetOverlay.addEventListener('click', e => {
+          if (e.target.id === 'filterSheetOverlay') closeFilterSheet();
+        });
+      }
+
+      if (applyFiltersSheetBtn) {
+        applyFiltersSheetBtn.addEventListener('click', () => {
+          closeFilterSheet();
+          render();
+          showToast('Filters applied!', 'success');
+        });
+      }
+
+      if (resetFiltersSheetBtn) {
+        resetFiltersSheetBtn.addEventListener('click', () => {
+          resetAllFilters();
+          closeFilterSheet();
+          showToast('All filters reset.', 'info');
+        });
+      }
+
+      if (clearAllFiltersBtn) {
+        clearAllFiltersBtn.addEventListener('click', () => {
+          resetAllFilters();
+          showToast('All filters cleared.', 'info');
+        });
+      }
+
+      // 5. Filter Sheet Option Buttons
+      // Tone Filter Buttons
+      document.querySelectorAll('.filter-toggle-btn.tones-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterOptions.tones = btn.getAttribute('data-tones');
+          syncFilterSheetUI();
+          render();
+        });
+      });
+
+      // Priority Level Multi-Select Buttons
+      document.querySelectorAll('.filter-toggle-btn[data-priority-val]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pVal = parseInt(btn.getAttribute('data-priority-val'), 10);
+          if (filterOptions.priorities.has(pVal)) {
+            filterOptions.priorities.delete(pVal);
+          } else {
+            filterOptions.priorities.add(pVal);
+          }
+          syncFilterSheetUI();
+          render();
+        });
+      });
+
+      // Duration Preset Buttons
+      document.querySelectorAll('.filter-toggle-btn.duration-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterOptions.duration = btn.getAttribute('data-duration');
+          const rangeBox = document.getElementById('customDurationRangeBox');
+          if (rangeBox) rangeBox.style.display = filterOptions.duration === 'custom' ? 'flex' : 'none';
+          syncFilterSheetUI();
+          render();
+        });
+      });
+
+      const customMinDur = document.getElementById('customMinDur');
+      const customMaxDur = document.getElementById('customMaxDur');
+      if (customMinDur && customMaxDur) {
+        const handleCustomDuration = () => {
+          filterOptions.duration = 'custom';
+          filterOptions.customMinDuration = parseFloat(customMinDur.value) || 0;
+          filterOptions.customMaxDuration = parseFloat(customMaxDur.value) || 60;
+          syncFilterSheetUI();
+          render();
+        };
+        customMinDur.addEventListener('input', handleCustomDuration);
+        customMaxDur.addEventListener('input', handleCustomDuration);
+      }
+
+      // Time Range Buttons
+      document.querySelectorAll('.filter-toggle-btn.timerange-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterOptions.timeRange = btn.getAttribute('data-timerange');
+          syncFilterSheetUI();
+          render();
+        });
+      });
+
+      // Status & Classification Buttons
+      document.querySelectorAll('.filter-toggle-btn.status-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterOptions.status = btn.getAttribute('data-status');
+          syncFilterSheetUI();
+          render();
+        });
+      });
+
+      // 6. Keyboard Shortcuts
+      document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if (searchInput) searchInput.focus();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+          e.preventDefault();
+          lockApp();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          openModal();
+        } else if ((e.altKey && e.key.toLowerCase() === 'f') || (e.ctrlKey && e.key.toLowerCase() === 'f')) {
+          e.preventDefault();
+          openFilterSheet();
+        } else if (e.key === 'Escape') {
+          if (filterSheetOverlay && filterSheetOverlay.classList.contains('open')) {
+            closeFilterSheet();
+          } else if (currentSearch) {
+            currentSearch = '';
+            if (searchInput) searchInput.value = '';
+            render();
+          }
+        }
+      });
+
+      // Close open dropdowns on background click
+      document.addEventListener('click', () => {
+        document.querySelectorAll('.speed-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+        const scopeMenu = document.getElementById('searchScopeMenu');
+        const scopeBtn = document.getElementById('searchScopeBtn');
+        if (scopeMenu) scopeMenu.classList.remove('open');
+        if (scopeBtn) scopeBtn.classList.remove('open');
+      });
+
+      document.getElementById('quick-search-btn').addEventListener('click', () => {
+        if (searchInput) searchInput.focus();
+      });
+
       document.getElementById('mNavSearch').addEventListener('click', () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => searchInput.focus(), 150);
+        setTimeout(() => { if (searchInput) searchInput.focus(); }, 150);
       });
 
       document.getElementById('mNavRefresh').addEventListener('click', () => {
@@ -3198,6 +4398,132 @@
       render();
     }
 
+    function setSearchScope(scopeVal) {
+      searchScope = scopeVal;
+      const labelMap = {
+        all: 'All',
+        transcript: 'Transcripts',
+        title: 'Titles',
+        id: 'IDs'
+      };
+      const labelEl = document.getElementById('searchScopeLabel');
+      if (labelEl) {
+        labelEl.textContent = labelMap[scopeVal] || 'All';
+      }
+      document.querySelectorAll('.scope-opt').forEach(opt => {
+        opt.classList.toggle('active', opt.getAttribute('data-scope') === scopeVal);
+      });
+      render();
+    }
+
+    function setSort(field, order) {
+      currentSort.field = field;
+      currentSort.order = order;
+      const sortKey = `${field}_${order}`;
+      const sortLabelMap = {
+        created_at_desc: 'Newest First',
+        created_at_asc: 'Oldest First',
+        duration_desc: 'Longest Audio',
+        duration_asc: 'Shortest Audio',
+        priority_desc: 'Highest Priority',
+        priority_asc: 'Lowest Priority',
+        title_asc: 'Title (A → Z)',
+        title_desc: 'Title (Z → A)',
+        transcript_desc: 'Longest Transcript'
+      };
+      const labelEl = document.getElementById('sortDropdownLabel');
+      if (labelEl) {
+        labelEl.textContent = sortLabelMap[sortKey] || `${field} (${order})`;
+      }
+      document.querySelectorAll('#sortDropdownMenu .dropdown-opt').forEach(opt => {
+        opt.classList.toggle('active', opt.getAttribute('data-sort') === sortKey);
+      });
+      render();
+    }
+
+    function openFilterSheet() {
+      syncFilterSheetUI();
+      document.getElementById('filterSheetOverlay').classList.add('open');
+      refreshLucideIcons();
+    }
+
+    function closeFilterSheet() {
+      document.getElementById('filterSheetOverlay').classList.remove('open');
+    }
+
+    function syncFilterSheetUI() {
+      // Sync Tones Buttons
+      document.querySelectorAll('.filter-toggle-btn.tones-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-tones') === filterOptions.tones);
+      });
+
+      // Sync Priority Buttons
+      document.querySelectorAll('.filter-toggle-btn[data-priority-val]').forEach(btn => {
+        const pVal = parseInt(btn.getAttribute('data-priority-val'), 10);
+        btn.classList.toggle('active', filterOptions.priorities.has(pVal));
+      });
+
+      // Sync Duration Buttons
+      document.querySelectorAll('.filter-toggle-btn.duration-preset-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-duration') === filterOptions.duration);
+      });
+
+      const rangeBox = document.getElementById('customDurationRangeBox');
+      if (rangeBox) rangeBox.style.display = filterOptions.duration === 'custom' ? 'flex' : 'none';
+
+      // Sync Time Range Buttons
+      document.querySelectorAll('.filter-toggle-btn.timerange-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-timerange') === filterOptions.timeRange);
+      });
+
+      // Sync Status Buttons
+      document.querySelectorAll('.filter-toggle-btn.status-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-status') === filterOptions.status);
+      });
+
+      // Sync Search Scope
+      const labelMap = {
+        all: 'All',
+        transcript: 'Transcripts',
+        title: 'Titles',
+        id: 'IDs'
+      };
+      const labelEl = document.getElementById('searchScopeLabel');
+      if (labelEl) {
+        labelEl.textContent = labelMap[searchScope] || 'All';
+      }
+      document.querySelectorAll('.scope-opt').forEach(opt => {
+        opt.classList.toggle('active', opt.getAttribute('data-scope') === searchScope);
+      });
+    }
+
+    function resetAllFilters() {
+      currentFilter = 'all';
+      currentSearch = '';
+      setSearchScope('all');
+      filterOptions.tones = 'all';
+      filterOptions.priorities.clear();
+      filterOptions.duration = 'all';
+      filterOptions.customMinDuration = 0;
+      filterOptions.customMaxDuration = 60;
+      filterOptions.timeRange = 'all';
+      filterOptions.status = 'all';
+      setSort('created_at', 'desc');
+
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) searchInput.value = '';
+
+      document.querySelectorAll('.quick-chip').forEach(c => {
+        c.classList.toggle('active', c.getAttribute('data-filter') === 'all');
+      });
+      document.querySelectorAll('.mobile-nav-item[data-filter]').forEach(m => {
+        m.classList.toggle('active', m.getAttribute('data-filter') === 'all');
+      });
+
+      syncFilterSheetUI();
+      render();
+    }
+
     function openModal() {
       document.getElementById('settingsModal').classList.add('open');
       refreshLucideIcons();
@@ -3212,7 +4538,13 @@
       const delBtn = document.getElementById('deleteSelectedBtn');
       const batchBar = document.getElementById('mobileBatchBar');
       const batchCount = document.getElementById('mobileBatchCount');
+      const selectAllBtnText = document.getElementById('selectAllBtnText');
+      const filtered = getFilteredDispatches();
       const count = selectedIds.size;
+
+      if (selectAllBtnText) {
+        selectAllBtnText.textContent = (filtered.length > 0 && count === filtered.length) ? 'Deselect All' : 'Select All';
+      }
 
       transBtn.disabled = count === 0;
       delBtn.disabled = count === 0;
