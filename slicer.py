@@ -55,6 +55,12 @@ except ImportError:
     print("[ERROR] supabase is required. Run: pip install -r requirements.txt")
     sys.exit(1)
 
+try:
+    import numpy as np
+except ImportError:
+    print("[ERROR] numpy is required. Run: pip install -r requirements.txt")
+    sys.exit(1)
+
 
 # ==============================================================================
 # Configuration & Defaults
@@ -154,87 +160,101 @@ def render_dbfs_meter(dbfs: float, threshold: float, is_active: bool) -> str:
 
 def detect_alert_tones(audio: AudioSegment) -> bool:
     """
-    Detects the presence of emergency alert beeps / 3-tone bursts at the beginning
-    of an audio transmission clip (first ~2.5 seconds).
-    Handles fluctuating volume levels and radio static.
+    Precision Emergency Alert Tone & 3-Beep Burst Detector.
+    Calibrated against standard dispatch alert tone reference (e.g. audiomass-output.mp3).
+    Performs Short-Time Fourier Transform (STFT) to isolate pure sinusoidal tone bursts
+    (typically ~1000Hz alert beeps or two-tone paging) from broadband human speech and radio hiss.
     """
     try:
         if len(audio) < 400:
             return False
 
-        # Analyze up to the first 2500ms
-        sample_audio = audio[:2500]
-        if sample_audio.dBFS < -55.0:
+        # Analyze the first 3.0 seconds where alert tones precede voice dispatch
+        clip = audio[:3000].set_frame_rate(22050).set_channels(1)
+        samples = np.array(clip.get_array_of_samples(), dtype=float)
+        if len(samples) < 2205:
             return False
 
-        sample_rate = sample_audio.frame_rate
-        raw_samples = sample_audio.get_array_of_samples()
-        total_samples = len(raw_samples)
-        if total_samples < 500:
-            return False
+        sr = 22050
+        win_size = int(sr * 0.04)  # 40ms analysis window
+        hop_size = int(sr * 0.02)  # 20ms step
+        hann_window = np.hanning(win_size)
 
-        # Analyze in 25ms windows with 12ms step
-        window_size = int(sample_rate * 0.025)
-        step_size = int(sample_rate * 0.012)
-        num_windows = (total_samples - window_size) // step_size
-        if num_windows <= 0:
-            return False
-
-        peak_amplitude = max(abs(s) for s in raw_samples)
-        if peak_amplitude < 250:
-            return False
-
-        # Dynamic amplitude threshold relative to clip's initial peak
-        min_amp_thresh = max(350, peak_amplitude * 0.18)
-
-        tone_windows = []
-        for i in range(num_windows):
-            start = i * step_size
-            window = raw_samples[start : start + window_size]
-
-            win_peak = max(abs(s) for s in window)
-            if win_peak < min_amp_thresh:
-                tone_windows.append(False)
+        tone_frames = []
+        for i in range(0, len(samples) - win_size, hop_size):
+            w = samples[i : i + win_size]
+            rms = np.sqrt(np.mean(w ** 2))
+            if rms < 350:  # Silence or ultra-low background noise
+                tone_frames.append(None)
                 continue
 
-            # Zero-Crossing Rate (ZCR) for 700Hz - 2600Hz high-pitched alert tones
-            crossings = sum(1 for j in range(1, len(window)) if (window[j] >= 0 and window[j-1] < 0) or (window[j] < 0 and window[j-1] >= 0))
-            freq_est = (crossings / 2.0) / 0.025
+            w_hann = w * hann_window
+            fft_mag = np.abs(np.fft.rfft(w_hann))
+            freqs = np.fft.rfftfreq(win_size, 1 / sr)
 
-            if 650 <= freq_est <= 2700:
-                tone_windows.append(True)
+            # Restrict to emergency dispatch tone spectrum (600Hz - 2200Hz)
+            band_mask = (freqs >= 600) & (freqs <= 2200)
+            if not np.any(band_mask):
+                tone_frames.append(None)
+                continue
+
+            band_fft = fft_mag.copy()
+            band_fft[~band_mask] = 0
+
+            peak_idx = np.argmax(band_fft)
+            peak_freq = freqs[peak_idx]
+
+            # Measure spectral purity: energy in peak bin & immediate adjacent bins vs total frame energy
+            low_b = max(0, peak_idx - 1)
+            high_b = min(len(fft_mag), peak_idx + 2)
+            peak_energy = np.sum(fft_mag[low_b:high_b])
+            total_energy = np.sum(fft_mag) + 1e-6
+            purity = peak_energy / total_energy
+
+            # Pure sine tone burst (e.g. 1000Hz beep) has high purity >= 0.35, whereas speech/static is broadband (<0.25)
+            if 700 <= peak_freq <= 1800 and purity >= 0.35:
+                tone_frames.append(round(peak_freq / 25) * 25)  # 25Hz quantized tone frequency
             else:
-                tone_windows.append(False)
+                tone_frames.append(None)
 
-        # Count contiguous tone pulses separated by small gaps
-        pulse_count = 0
-        in_pulse = False
-        pulse_length = 0
-        gap_length = 0
+        # Assemble contiguous tone pulses
+        pulses = []
+        current_freq = None
+        current_len = 0
+        gap_len = 0
 
-        for is_tone in tone_windows:
-            if is_tone:
-                if not in_pulse:
-                    in_pulse = True
-                    pulse_length = 1
+        for f in tone_frames:
+            if f is not None:
+                if current_freq is None:
+                    current_freq = f
+                    current_len = 1
+                elif abs(f - current_freq) <= 50:
+                    current_len += 1
                 else:
-                    pulse_length += 1
-                gap_length = 0
+                    if current_len >= 4:  # >= 80ms pulse duration
+                        pulses.append((current_freq, current_len * 0.02))
+                    current_freq = f
+                    current_len = 1
+                gap_len = 0
             else:
-                if in_pulse:
-                    gap_length += 1
-                    # Gaps >= 3 windows (~36ms) end the pulse
-                    if gap_length >= 3:
-                        if 3 <= pulse_length <= 35: # 36ms to 420ms tone pulse
-                            pulse_count += 1
-                        in_pulse = False
-                        pulse_length = 0
+                if current_freq is not None:
+                    gap_len += 1
+                    if gap_len >= 5:  # >= 100ms gap ends the pulse
+                        if current_len >= 4:  # >= 80ms
+                            pulses.append((current_freq, current_len * 0.02))
+                        current_freq = None
+                        current_len = 0
 
-        if in_pulse and 3 <= pulse_length <= 35:
-            pulse_count += 1
+        if current_freq is not None and current_len >= 4:
+            pulses.append((current_freq, current_len * 0.02))
 
-        # 2 to 5 distinct tone pulses indicate 3-beep alert tones
-        return 2 <= pulse_count <= 5
+        # Alert condition: 2 to 5 distinct tone pulses (e.g. 3-beep burst) in the 750Hz-1600Hz range
+        if 2 <= len(pulses) <= 5:
+            freqs_detected = [p[0] for p in pulses]
+            if all(750 <= f <= 1600 for f in freqs_detected):
+                return True
+
+        return False
     except Exception:
         return False
 

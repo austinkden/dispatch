@@ -4,5 +4,6 @@ supabase>=2.3.0
 python-dotenv>=1.0.0
 gradio>=5.0.0
 huggingface_hub>=0.28.0
+numpy>=1.24.0
 spaces; sys_platform != 'win32'
 audioop-lts; python_version >= '3.13'

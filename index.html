@@ -1738,7 +1738,8 @@
     let config = {
       supabaseUrl: 'https://uquhzylwnzprokmqadno.supabase.co',
       supabaseAnonKey: 'sb_publishable_1jzfgBYw-Ix38_IYqccQbQ_XpJ5jJW1',
-      groqApiKey: ''
+      groqApiKey: '',
+      geminiApiKey: ''
     };
 
     let supabaseClient = null;
@@ -2962,9 +2963,29 @@
     async function generateAiTitleAndPriority(transcript) {
       if (!transcript || transcript.length < 3) return null;
 
-      // 1. Primary Engine: Google Gemini (Fast & Accurate Free Tier)
+      function cleanAndParseJson(raw) {
+        if (!raw) return null;
+        try {
+          // Remove Markdown code fences if present
+          let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+          const match = cleaned.match(/\{[\s\S]*\}/);
+          if (match) {
+            cleaned = match[0];
+          }
+          const parsed = JSON.parse(cleaned);
+          const title = parsed.title ? String(parsed.title).trim() : null;
+          const priority = (parsed.priority && parseInt(parsed.priority, 10) >= 1 && parseInt(parsed.priority, 10) <= 5)
+            ? parseInt(parsed.priority, 10)
+            : 0;
+          return { title, priority };
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // 1. Primary Engine: Google Gemini (Prioritized First)
       if (config.geminiApiKey) {
-        const geminiModels = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+        const geminiModels = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
         for (const model of geminiModels) {
           try {
             const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey.trim()}`;
@@ -2996,12 +3017,9 @@
 
             const data = await resp.json();
             const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (textResponse) {
-              const parsed = JSON.parse(textResponse);
-              return {
-                title: parsed.title ? String(parsed.title).trim() : null,
-                priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
-              };
+            const parsed = cleanAndParseJson(textResponse);
+            if (parsed && parsed.title) {
+              return parsed;
             }
           } catch (geminiErr) {
             console.warn(`Gemini titling error on ${model}:`, geminiErr);
@@ -3012,11 +3030,10 @@
       // 2. Secondary Fallback Engine: Groq LLaMA
       if (config.groqApiKey) {
         const groqCandidateModels = [
-          'llama3-8b-8192',
-          'llama3-70b-8192',
-          'mixtral-8x7b-32768',
-          'gemma2-9b-it',
-          'llama-3.3-70b-versatile'
+          'llama-3.3-70b-versatile',
+          'llama-3.1-8b-instant',
+          'llama-3.1-70b-versatile',
+          'mixtral-8x7b-32768'
         ];
 
         for (const model of groqCandidateModels) {
@@ -3053,12 +3070,9 @@
 
             const data = await resp.json();
             const rawContent = data.choices?.[0]?.message?.content;
-            if (rawContent) {
-              const parsed = JSON.parse(rawContent);
-              return {
-                title: parsed.title ? String(parsed.title).trim() : null,
-                priority: (parsed.priority && parsed.priority >= 1 && parsed.priority <= 5) ? parseInt(parsed.priority, 10) : 0
-              };
+            const parsed = cleanAndParseJson(rawContent);
+            if (parsed && parsed.title) {
+              return parsed;
             }
           } catch (err) {
             console.warn(`Groq AI titling error with ${model}:`, err);
