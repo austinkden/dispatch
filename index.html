@@ -18,10 +18,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,slnt,wdth,wght,GRAD,ROND@6..144,-10..0,25..151,1..1000,0..100,0..100&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Lucide Icons, Supabase JS SDK & JSZip -->
+  <!-- Lucide Icons, Supabase JS SDK, JSZip & HLS.js for Live Audio Streaming -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
   <style>
     /* ==============================================================================
@@ -1756,8 +1757,15 @@
       border-radius: var(--radius-lg);
       width: 100%;
       max-width: 440px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
       animation: m3-fade 0.15s ease-out;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+    }
+    .m3-modal-card.settings-modal-card {
+      max-width: 580px;
     }
 
     .modal-header {
@@ -1766,6 +1774,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
     }
 
     .modal-body {
@@ -1773,6 +1782,8 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      overflow-y: auto;
+      max-height: calc(88vh - 120px);
     }
 
     .form-group {
@@ -1793,6 +1804,8 @@
       color: var(--on-surface);
       font-size: 13px;
       font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.2s ease;
     }
     .form-input:focus { border-color: var(--primary); }
 
@@ -1804,6 +1817,184 @@
       align-items: center;
       justify-content: flex-end;
       gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Settings Tiles Grid & Sub-Panel Styles */
+    .settings-header-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: rgba(136, 89, 255, 0.15);
+      border: 1px solid rgba(136, 89, 255, 0.3);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .settings-tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 520px) {
+      .settings-tiles-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .settings-tile-card {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .settings-tile-card:hover {
+      background: var(--surface-container-highest);
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .tile-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tile-icon-wrap {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tile-icon-wrap.groq { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+    .tile-icon-wrap.gemini { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .tile-icon-wrap.supabase { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .tile-icon-wrap.stream { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .tile-icon-wrap.proxy { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .tile-icon-wrap.audio { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+    .tile-status-badge {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      background: var(--surface-container);
+      color: var(--on-surface-variant);
+      border: 1px solid var(--outline-variant);
+    }
+    .tile-status-badge.active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .tile-status-badge.warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .tile-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--on-surface);
+      margin: 0 0 2px;
+    }
+    .tile-desc {
+      font-size: 11px;
+      color: var(--on-surface-variant);
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    .tile-bottom-action {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--outline-variant);
+      padding-top: 6px;
+      margin-top: 2px;
+    }
+    .tile-key-preview {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+
+    .btn-xs {
+      padding: 3px 8px;
+      font-size: 11px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Sub-Panel Focused Edit Sheet */
+    .settings-sub-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: var(--surface-container);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      animation: m3-fade 0.15s ease-out;
+    }
+    .sub-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--outline-variant);
+      padding-bottom: 10px;
+    }
+    .sub-panel-back-btn {
+      background: transparent;
+      border: none;
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0;
+    }
+    .sub-panel-back-btn:hover {
+      text-decoration: underline;
+    }
+    .sub-panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--on-surface);
+    }
+    .sub-panel-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .sub-panel-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--outline-variant);
     }
 
     /* Toast */
@@ -2008,50 +2199,90 @@
     }
 
     @media (max-width: 768px) {
+      .top-controls-bar {
+        padding: 8px 10px;
+        gap: 6px;
+      }
+      .brand-pill {
+        padding: 5px 8px;
+        gap: 6px;
+      }
+      .brand-pill span {
+        display: none;
+      }
+      .btn-label-text, .btn-kbd {
+        display: none !important;
+      }
+      .control-btn {
+        padding: 6px 8px;
+      }
+      .unified-live-capsule {
+        padding: 2px 2px 2px 6px;
+        gap: 2px;
+      }
+      .unified-live-label {
+        font-size: 10.5px;
+      }
       .mobile-bottom-nav {
         display: flex;
       }
       .app-container {
-        padding: 14px 12px calc(80px + env(safe-area-inset-bottom, 0px));
+        padding: 12px 10px calc(80px + env(safe-area-inset-bottom, 0px));
       }
       .hero-header {
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
       .hero-title {
-        font-size: 19px;
+        font-size: 18px;
       }
       .hero-subtitle {
-        font-size: 11.5px;
+        font-size: 11px;
       }
       .portal-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-bottom: 14px;
+        gap: 6px;
+        margin-bottom: 12px;
       }
       .portal-card {
-        padding: 10px 12px;
+        padding: 8px 10px;
       }
       .card-value {
-        font-size: 18px;
+        font-size: 16px;
       }
       .card-footer {
-        font-size: 10px;
+        font-size: 9.5px;
       }
       .toolbar-section {
-        padding: 10px 12px;
-        margin-bottom: 14px;
+        padding: 10px 10px;
+        margin-bottom: 12px;
         border-radius: var(--radius-md);
+        gap: 8px;
+      }
+      .toolbar-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .toolbar-controls-right {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .bulk-actions-left {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
       }
       .search-input {
         font-size: 12px;
-        padding: 7px 12px 7px 32px;
+        padding: 7px 10px 7px 30px;
       }
       .quick-chip {
-        padding: 4px 10px;
-        font-size: 11px;
+        padding: 4px 8px;
+        font-size: 10.5px;
       }
       .dispatch-card {
-        padding: 12px 12px;
+        padding: 10px 10px;
         border-radius: var(--radius-md);
       }
       .card-top-bar {
@@ -2059,15 +2290,15 @@
         gap: 6px;
       }
       .clip-time {
-        font-size: 11.5px;
+        font-size: 11px;
       }
       .m3-play-btn {
-        width: 42px;
-        height: 42px;
+        width: 38px;
+        height: 38px;
       }
       .m3-play-btn svg {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
       }
       .m3-slider {
         height: 6px;
@@ -2077,20 +2308,45 @@
         height: 16px;
       }
       .transcript-box {
-        padding: 10px 12px;
+        padding: 8px 10px;
       }
       .transcript-text {
-        font-size: 12.5px;
+        font-size: 12px;
       }
+      
+      /* Continuous Bottom Player Mobile Dock */
+      .continuous-player-bar {
+        bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+        padding: 8px 12px;
+      }
+      .continuous-player-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .continuous-track-info {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .continuous-right-controls {
+        display: none;
+      }
+
+      /* Modal Bottom Sheets */
       .m3-modal-overlay {
         align-items: flex-end;
         padding: 0;
       }
       .m3-modal-card {
         border-radius: 20px 20px 0 0;
-        max-width: 100%;
+        max-width: 100% !important;
+        max-height: 90vh;
         animation: m3-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         padding-bottom: env(safe-area-inset-bottom, 12px);
+      }
+      .modal-body {
+        max-height: calc(90vh - 120px);
+        padding: 14px;
       }
       @keyframes m3-slide-up {
         from { transform: translateY(100%); }
@@ -2098,6 +2354,612 @@
       }
       .toast-container {
         bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+      }
+    }
+
+    /* ==============================================================================
+       UNIFIED LIVE STREAM & RECORDER MONITOR CAPSULE WIDGET
+       ============================================================================== */
+    .unified-live-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .unified-live-capsule {
+      display: inline-flex;
+      align-items: center;
+      background: var(--surface-container-high);
+      border: 1px solid var(--outline-variant);
+      border-radius: var(--radius-full);
+      padding: 2px 4px 2px 8px;
+      gap: 4px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+
+    .unified-live-capsule:hover {
+      border-color: var(--outline);
+      background: var(--surface-container-highest);
+    }
+
+    .unified-live-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: transparent;
+      border: none;
+      color: var(--on-surface-variant);
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: var(--radius-full);
+      transition: all 0.2s ease;
+    }
+
+    .unified-live-trigger:hover {
+      color: var(--on-surface);
+    }
+
+    .unified-live-capsule.online .unified-live-trigger {
+      color: #34d399;
+    }
+
+    .unified-live-capsule.recording .unified-live-trigger {
+      color: #fbbf24;
+    }
+
+    .unified-live-capsule.streaming .unified-live-trigger {
+      color: #f87171;
+    }
+
+    .unified-live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--outline-variant);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+
+    .unified-live-capsule.online .unified-live-dot {
+      background: #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    }
+
+    .unified-live-capsule.recording .unified-live-dot {
+      background: #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+      animation: live-pulse-dot 0.8s infinite alternate ease-in-out;
+    }
+
+    .unified-live-capsule.streaming .unified-live-dot {
+      background: #ef4444;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+      animation: live-pulse-dot 1s infinite alternate ease-in-out;
+    }
+
+    @keyframes live-pulse-dot {
+      from { transform: scale(0.8); opacity: 0.6; }
+      to { transform: scale(1.3); opacity: 1; }
+    }
+
+    .unified-headphone-icon {
+      width: 14px;
+      height: 14px;
+      opacity: 0.6;
+      transition: all 0.2s ease;
+    }
+
+    .unified-live-trigger:hover .unified-headphone-icon {
+      opacity: 1;
+      transform: scale(1.15);
+      color: var(--primary);
+    }
+
+    .unified-live-equalizer {
+      display: none;
+      align-items: flex-end;
+      gap: 2px;
+      height: 12px;
+    }
+
+    .unified-live-capsule.streaming .unified-live-equalizer {
+      display: inline-flex;
+    }
+
+    .unified-live-capsule.streaming .unified-headphone-icon {
+      display: none;
+    }
+
+    .unified-live-equalizer .eq-bar {
+      width: 2px;
+      background: #ef4444;
+      border-radius: 1px;
+      height: 3px;
+    }
+
+    .unified-live-capsule.streaming .eq-bar:nth-child(1) { animation: eq-bounce 0.8s infinite ease-in-out alternate; }
+    .unified-live-capsule.streaming .eq-bar:nth-child(2) { animation: eq-bounce 0.6s 0.2s infinite ease-in-out alternate; }
+    .unified-live-capsule.streaming .eq-bar:nth-child(3) { animation: eq-bounce 0.9s 0.1s infinite ease-in-out alternate; }
+    .unified-live-capsule.streaming .eq-bar:nth-child(4) { animation: eq-bounce 0.7s 0.3s infinite ease-in-out alternate; }
+
+    @keyframes eq-bounce {
+      0% { height: 3px; }
+      100% { height: 12px; }
+    }
+
+    .unified-live-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .unified-popover-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      padding: 0;
+      transition: all 0.2s ease;
+    }
+
+    .unified-popover-toggle:hover {
+      background: var(--surface-container);
+      color: var(--on-surface);
+    }
+
+    .unified-popover-toggle.open {
+      background: var(--surface-container-highest);
+      color: var(--primary);
+      transform: rotate(180deg);
+    }
+
+    /* Live Flyout Popover Menu */
+    .live-flyout-popover {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 1100;
+      width: 290px;
+      background: var(--surface-container-high);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--outline-variant);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      box-shadow: var(--shadow-3), 0 0 20px rgba(0, 0, 0, 0.4);
+      flex-direction: column;
+      gap: 12px;
+      animation: m3-fade 0.15s cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    .live-flyout-popover.open {
+      display: flex;
+    }
+
+    .popover-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--outline-variant);
+      padding-bottom: 8px;
+    }
+
+    .popover-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .popover-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+
+    .popover-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--on-surface);
+    }
+
+    .popover-timer-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--on-surface-variant);
+      background: var(--surface-container-highest);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+    }
+
+    .popover-audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-container);
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+    }
+
+    .popover-mute-btn {
+      background: transparent;
+      border: none;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .popover-mute-btn:hover {
+      color: var(--primary);
+    }
+
+    .popover-slider-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .popover-vol-slider {
+      width: 100%;
+      height: 4px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .popover-vol-text {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .popover-telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .telemetry-cell {
+      background: var(--surface-container);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .telemetry-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--on-surface-variant);
+      font-weight: 600;
+    }
+
+    .telemetry-val {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--on-surface);
+    }
+
+    .telemetry-val.highlight {
+      color: #34d399;
+    }
+
+    .popover-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 4px;
+    }
+
+    .popover-action-btn {
+      flex: 1;
+      font-size: 11px;
+      padding: 5px 8px;
+      justify-content: center;
+    }
+
+    /* ==============================================================================
+       CONTINUOUS DISPATCH FEED PLAYER DOCK
+       ============================================================================== */
+    .continuous-player-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 920;
+      background: rgba(23, 21, 28, 0.96);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(136, 89, 255, 0.35);
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(136, 89, 255, 0.12);
+      padding: 10px 18px calc(10px + env(safe-area-inset-bottom, 0px));
+      animation: m3-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .continuous-player-bar.active {
+      display: block;
+    }
+    .continuous-player-grid {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px 1fr 260px;
+      align-items: center;
+      gap: 16px;
+    }
+    .continuous-track-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .continuous-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .continuous-title-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--on-surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .continuous-time-sub {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .continuous-center-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .continuous-btn-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .continuous-ctrl-btn {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      color: var(--on-surface);
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .continuous-ctrl-btn:hover {
+      background: var(--surface-container-highest);
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: scale(1.05);
+    }
+    .continuous-play-main-btn {
+      background: var(--primary);
+      border: none;
+      color: #ffffff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 14px rgba(136, 89, 255, 0.4);
+      transition: all 0.15s ease;
+    }
+    .continuous-play-main-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 18px rgba(136, 89, 255, 0.6);
+    }
+    .continuous-seek-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .continuous-seek-time {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--on-surface-variant);
+      min-width: 32px;
+    }
+    .continuous-slider {
+      flex: 1;
+      height: 5px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    .continuous-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(136, 89, 255, 0.7);
+    }
+    .continuous-right-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .continuous-queue-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      color: var(--on-surface-variant);
+      white-space: nowrap;
+    }
+    .continuous-queue-badge.standby {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+    }
+    .continuous-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      color: var(--on-surface-variant);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .continuous-toggle-btn:hover, .continuous-toggle-btn.active {
+      background: var(--surface-container-highest);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Active Highlight on Playing Feed Card */
+    .dispatch-card.is-continuous-active {
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 24px rgba(136, 89, 255, 0.35) !important;
+      background: linear-gradient(180deg, rgba(136, 89, 255, 0.1) 0%, var(--surface) 100%) !important;
+    }
+
+    /* Time Selection Presets Grid */
+    .time-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .time-preset-btn {
+      padding: 8px 10px;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      color: var(--on-surface);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+    .time-preset-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--surface-container-highest);
+    }
+    .time-preset-btn.active {
+      border-color: var(--primary);
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+
+    .time-direction-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .time-direction-btn {
+      padding: 8px 6px;
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      color: var(--on-surface-variant);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .time-direction-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .time-direction-btn.active {
+      border-color: var(--primary);
+      background: var(--primary-container);
+      color: var(--on-primary-container);
+    }
+
+    .time-preview-banner {
+      background: var(--surface-variant);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      color: var(--on-surface);
+    }
+
+    @media (max-width: 768px) {
+      .continuous-player-bar {
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+        padding: 8px 12px;
+      }
+      .continuous-player-grid {
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+      }
+      .continuous-seek-row {
+        grid-column: 1 / -1;
+      }
+      .continuous-right-controls {
+        display: none;
+      }
+      .time-preset-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
   </style>
@@ -2133,10 +2995,81 @@
       <span>Trace Dispatch</span>
     </a>
 
-    <!-- Live Audio Recording Status Indicator -->
-    <div class="live-status-badge offline" id="liveAudioStatus">
-      <div class="status-dot-indicator"></div>
-      <span id="liveStatusText">LISTENER OFFLINE</span>
+    <!-- Unified Live Stream & Recorder Monitor Capsule Widget -->
+    <div class="unified-live-wrap" id="unifiedLiveWrap">
+      <div class="unified-live-capsule offline" id="unifiedLiveCapsule">
+        <!-- Clickable Main Stream Trigger Area -->
+        <button class="unified-live-trigger" id="unifiedLiveTrigger" title="Listen to 24/7 Live Radio Stream (Shift+L)">
+          <div class="unified-live-dot" id="unifiedLiveDot"></div>
+          <div class="unified-live-equalizer" id="unifiedLiveEqualizer">
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+          </div>
+          <i data-lucide="headphones" class="unified-headphone-icon" id="unifiedHeadphoneIcon"></i>
+          <span class="unified-live-label" id="unifiedLiveLabel">OFFLINE</span>
+        </button>
+
+        <!-- Dropdown / Popover Toggle Button -->
+        <button class="unified-popover-toggle" id="unifiedPopoverToggle" title="Audio Controls & Stream Details">
+          <i data-lucide="chevron-down" class="lucide-xs" id="unifiedChevronIcon"></i>
+        </button>
+      </div>
+
+      <!-- Sleek Flyout Popover Menu -->
+      <div class="live-flyout-popover" id="liveFlyoutPopover">
+        <div class="popover-header">
+          <div class="popover-title-row">
+            <div class="popover-status-dot" id="popoverStatusDot"></div>
+            <span class="popover-title" id="popoverTitleText">Broadcastify 24/7 Feed</span>
+          </div>
+          <span class="popover-timer-badge" id="liveElapsedTimer">Live 00:00</span>
+        </div>
+
+        <!-- Audio Volume Control Row -->
+        <div class="popover-audio-controls">
+          <button class="popover-mute-btn" id="liveMuteBtn" title="Mute / Unmute">
+            <i data-lucide="volume-2" class="lucide-sm"></i>
+          </button>
+          <div class="popover-slider-wrap">
+            <input type="range" class="popover-vol-slider" id="liveVolumeSlider" min="0" max="1" step="0.05" value="1" title="Stream Volume" />
+          </div>
+          <span class="popover-vol-text" id="liveVolumeText">100%</span>
+        </div>
+
+        <!-- Real-Time Telemetry & Recorder Stats -->
+        <div class="popover-telemetry-grid">
+          <div class="telemetry-cell">
+            <span class="telemetry-label">VAD State</span>
+            <span class="telemetry-val" id="popoverVadState">MONITORING</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="telemetry-label">Signal (dBFS)</span>
+            <span class="telemetry-val" id="popoverDbfs">-45.0 dB</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="telemetry-label">Slice Time</span>
+            <span class="telemetry-val" id="popoverSliceDuration">0.0s</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="telemetry-label">Stream Feed</span>
+            <span class="telemetry-val highlight" id="popoverFeedStatus">ONLINE</span>
+          </div>
+        </div>
+
+        <!-- Action Footer -->
+        <div class="popover-footer">
+          <button class="btn btn-tonal btn-sm popover-action-btn" id="popoverSettingsBtn" title="Edit Stream URL">
+            <i data-lucide="settings" class="lucide-xs"></i>
+            Stream Settings
+          </button>
+          <button class="btn btn-danger btn-sm popover-action-btn" id="stopLiveStreamBtn">
+            <i data-lucide="square" class="lucide-xs"></i>
+            Stop Audio
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="controls-group">
@@ -2241,6 +3174,18 @@
             <i data-lucide="sliders-horizontal" class="lucide-sm"></i>
             <span>Filters</span>
             <span class="filter-badge-count" id="filterActiveBadge" style="display: none;">0</span>
+          </button>
+
+          <!-- Listen from Time Action -->
+          <button class="btn btn-tonal btn-sm" id="listenFromTimeBtn" title="Start continuous playback starting from a specific time">
+            <i data-lucide="play-circle" class="lucide-sm" style="color: var(--primary);"></i>
+            <span>Listen from Time</span>
+          </button>
+
+          <!-- Transcribe by Time Window Action -->
+          <button class="btn btn-tonal btn-sm" id="openTimeTranscribeBtn" title="Batch transcribe dispatches within a time window (around, before, after)">
+            <i data-lucide="sparkles" class="lucide-sm" style="color: #10b981;"></i>
+            <span>Transcribe Window</span>
           </button>
 
           <div class="custom-dropdown-wrap" id="sortDropdownWrap">
@@ -2456,91 +3401,403 @@
     </div>
   </main>
 
-  <!-- Settings Modal -->
+  <!-- Settings Modal (Compact Interactive Tile Grid & Sub-Panel) -->
   <div class="m3-modal-overlay" id="settingsModal">
-    <div class="m3-modal-card">
+    <div class="m3-modal-card settings-modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="settings-header-icon">
+            <i data-lucide="sliders" class="lucide-sm"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 14px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px;">
+              Settings & API Configuration
+            </h3>
+            <span style="font-size: 11px; color: var(--on-surface-variant);">Click any card to view or edit configuration</span>
+          </div>
+        </div>
+        <button class="control-btn" id="closeSettingsBtn" style="padding: 4px 8px;" title="Close Settings">
+          <i data-lucide="x" class="lucide-sm"></i>
+        </button>
+      </div>
+
+      <div class="modal-body settings-grid-body">
+        <!-- Settings Category Tiles Grid -->
+        <div class="settings-tiles-grid" id="settingsTilesGrid">
+          <!-- 1. Groq Whisper AI Key Card -->
+          <div class="settings-tile-card" id="tileGroq" data-panel="groq">
+            <div class="tile-top-row">
+              <div class="tile-icon-wrap groq">
+                <i data-lucide="sparkles" class="lucide-sm"></i>
+              </div>
+              <span class="tile-status-badge" id="badgeGroq">Not Set</span>
+            </div>
+            <div class="tile-info">
+              <h4 class="tile-title">Groq Whisper</h4>
+            </div>
+            <div class="tile-bottom-action">
+              <span class="tile-key-preview" id="previewGroq">No key</span>
+              <button class="btn btn-tonal btn-xs tile-edit-btn">Edit</button>
+            </div>
+          </div>
+
+          <!-- 2. Google Gemini AI Key Card -->
+          <div class="settings-tile-card" id="tileGemini" data-panel="gemini">
+            <div class="tile-top-row">
+              <div class="tile-icon-wrap gemini">
+                <i data-lucide="bot" class="lucide-sm"></i>
+              </div>
+              <span class="tile-status-badge" id="badgeGemini">Optional</span>
+            </div>
+            <div class="tile-info">
+              <h4 class="tile-title">Google Gemini</h4>
+            </div>
+            <div class="tile-bottom-action">
+              <span class="tile-key-preview" id="previewGemini">Free key</span>
+              <button class="btn btn-tonal btn-xs tile-edit-btn">Edit</button>
+            </div>
+          </div>
+
+          <!-- 3. Supabase Cloud Database Card -->
+          <div class="settings-tile-card" id="tileSupabase" data-panel="supabase">
+            <div class="tile-top-row">
+              <div class="tile-icon-wrap supabase">
+                <i data-lucide="database" class="lucide-sm"></i>
+              </div>
+              <span class="tile-status-badge" id="badgeSupabase">Connected</span>
+            </div>
+            <div class="tile-info">
+              <h4 class="tile-title">Supabase Database</h4>
+            </div>
+            <div class="tile-bottom-action">
+              <span class="tile-key-preview" id="previewSupabase">Configured</span>
+              <button class="btn btn-tonal btn-xs tile-edit-btn">Edit</button>
+            </div>
+          </div>
+
+          <!-- 4. Live Broadcast Stream URL Card -->
+          <div class="settings-tile-card" id="tileStream" data-panel="stream">
+            <div class="tile-top-row">
+              <div class="tile-icon-wrap stream">
+                <i data-lucide="radio" class="lucide-sm"></i>
+              </div>
+              <span class="tile-status-badge" id="badgeStream">Feed 46604</span>
+            </div>
+            <div class="tile-info">
+              <h4 class="tile-title">Live Radio Stream</h4>
+            </div>
+            <div class="tile-bottom-action">
+              <span class="tile-key-preview" id="previewStream">Default Feed</span>
+              <button class="btn btn-tonal btn-xs tile-edit-btn">Edit</button>
+            </div>
+          </div>
+
+          <!-- 5. Cloudflare Proxy Card -->
+          <div class="settings-tile-card" id="tileProxy" data-panel="proxy">
+            <div class="tile-top-row">
+              <div class="tile-icon-wrap proxy">
+                <i data-lucide="shield" class="lucide-sm"></i>
+              </div>
+              <span class="tile-status-badge" id="badgeProxy">Direct</span>
+            </div>
+            <div class="tile-info">
+              <h4 class="tile-title">Cloudflare Proxy</h4>
+            </div>
+            <div class="tile-bottom-action">
+              <span class="tile-key-preview" id="previewProxy">Direct</span>
+              <button class="btn btn-tonal btn-xs tile-edit-btn">Edit</button>
+            </div>
+          </div>
+
+          <!-- 6. Playback & Automation Card -->
+          <div class="settings-tile-card" id="tilePlayback" data-panel="playback">
+            <div class="tile-top-row">
+              <div class="tile-icon-wrap audio">
+                <i data-lucide="volume-2" class="lucide-sm"></i>
+              </div>
+              <span class="tile-status-badge" id="badgePlaybackSpeed">1.0x</span>
+            </div>
+            <div class="tile-info">
+              <h4 class="tile-title">Audio & Alerts</h4>
+            </div>
+            <div class="tile-bottom-action">
+              <span class="tile-key-preview" id="previewTones">Tones Auto: On</span>
+              <button class="btn btn-tonal btn-xs tile-edit-btn">Options</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Single Active Input Sub-Sheet / Popup -->
+        <div class="settings-sub-panel" id="settingsSubPanel" style="display: none;">
+          <div class="sub-panel-header">
+            <button class="sub-panel-back-btn" id="subPanelBackBtn">
+              <i data-lucide="arrow-left" class="lucide-xs"></i>
+              Back to Overview
+            </button>
+            <span class="sub-panel-title" id="subPanelTitle">Edit Configuration</span>
+          </div>
+
+          <div class="sub-panel-content" id="subPanelContent">
+            <!-- Dynamic focused input fields rendered here -->
+          </div>
+
+          <div class="sub-panel-footer">
+            <button class="btn btn-tonal btn-sm" id="subPanelClearBtn">Clear</button>
+            <button class="btn btn-primary btn-sm" id="subPanelDoneBtn">Done</button>
+          </div>
+        </div>
+
+        <!-- Hidden Global Form Inputs so existing saveConfig & sync work seamlessly -->
+        <div style="display: none;">
+          <input type="text" id="cfgSupabaseUrl" />
+          <input type="password" id="cfgSupabaseAnonKey" />
+          <input type="password" id="cfgGroqApiKey" />
+          <input type="password" id="cfgGeminiApiKey" />
+          <input type="text" id="cfgProxyUrl" />
+          <input type="text" id="cfgStreamUrl" />
+          <select id="cfgDefaultSpeed">
+            <option value="0.5">0.5x</option>
+            <option value="1.0" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="1.75">1.75x</option>
+            <option value="2.0">2.0x</option>
+            <option value="3.0">3.0x</option>
+            <option value="4.0">4.0x</option>
+          </select>
+          <input type="checkbox" id="cfgAutoTranscribeTones" checked />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-tonal" id="cancelSettingsBtn">Close</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">Save & Sync</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Persistent Continuous Audio Player Dock -->
+  <div class="continuous-player-bar" id="continuousPlayerBar">
+    <div class="continuous-player-grid">
+      <!-- Left: Active Track Info -->
+      <div class="continuous-track-info">
+        <div class="continuous-title-row">
+          <span class="badge-pill" id="continuousToneBadge" style="display: none; border-color: #fb7185; color: #fb7185; font-size: 10px; padding: 2px 6px;">
+            <i data-lucide="bell" class="lucide-xs"></i> Tone
+          </span>
+          <span class="continuous-title-text" id="continuousTitle">Dispatch Feed Active</span>
+        </div>
+        <div class="continuous-time-sub">
+          <i data-lucide="clock" class="lucide-xs"></i>
+          <span id="continuousTime">--:--:--</span>
+          <span>&bull;</span>
+          <span id="continuousDuration">0.0s</span>
+        </div>
+      </div>
+
+      <!-- Center: Controls & Scrubber -->
+      <div class="continuous-center-controls">
+        <div class="continuous-btn-row">
+          <button class="continuous-ctrl-btn" id="continuousPrevBtn" title="Previous Clip (Alt+Left)">
+            <i data-lucide="skip-back" class="lucide-sm"></i>
+          </button>
+          <button class="continuous-play-main-btn" id="continuousPlayBtn" title="Play / Pause Feed (Space)">
+            <i data-lucide="play" class="lucide"></i>
+          </button>
+          <button class="continuous-ctrl-btn" id="continuousNextBtn" title="Next Clip (Alt+Right)">
+            <i data-lucide="skip-forward" class="lucide-sm"></i>
+          </button>
+        </div>
+        <div class="continuous-seek-row">
+          <span class="continuous-seek-time" id="continuousCurTime">0:00</span>
+          <input type="range" class="continuous-slider" id="continuousScrub" min="0" max="100" value="0" />
+          <span class="continuous-seek-time" id="continuousTotalTime">0:00</span>
+        </div>
+      </div>
+
+      <!-- Right: Queue Status, Speed, Auto-scroll & Close -->
+      <div class="continuous-right-controls">
+        <span class="continuous-queue-badge" id="continuousQueueBadge">Clip 1 of 1</span>
+        
+        <button class="continuous-toggle-btn active" id="continuousFollowToggle" title="Auto-scroll to playing card">
+          <i data-lucide="eye" class="lucide-xs"></i>
+          <span>Follow</span>
+        </button>
+
+        <div class="speed-selector-wrap" id="continuousSpeedWrap">
+          <button class="speed-chip" id="continuousSpeedBtn" title="Feed playback speed">
+            <span class="speed-val" id="continuousSpeedVal">1.0x</span>
+            <i data-lucide="chevron-down" class="lucide-xs"></i>
+          </button>
+          <div class="speed-dropdown-menu" id="continuousSpeedMenu">
+            <button class="speed-opt" data-speed="0.5">0.5x</button>
+            <button class="speed-opt active" data-speed="1.0">1.0x</button>
+            <button class="speed-opt" data-speed="1.25">1.25x</button>
+            <button class="speed-opt" data-speed="1.5">1.5x</button>
+            <button class="speed-opt" data-speed="1.75">1.75x</button>
+            <button class="speed-opt" data-speed="2.0">2.0x</button>
+            <button class="speed-opt" data-speed="3.0">3.0x</button>
+            <button class="speed-opt" data-speed="4.0">4.0x</button>
+          </div>
+        </div>
+
+        <button class="continuous-ctrl-btn" id="continuousJumpTimeBtn" title="Jump to another timestamp">
+          <i data-lucide="calendar" class="lucide-xs"></i>
+        </button>
+
+        <button class="continuous-ctrl-btn" id="continuousCloseBtn" title="Close Continuous Player">
+          <i data-lucide="x" class="lucide-xs"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listen From Time Picker Modal -->
+  <div class="m3-modal-overlay" id="timePickerModal">
+    <div class="m3-modal-card" style="max-width: 440px;">
       <div class="modal-header">
         <h3 style="font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-          <i data-lucide="sliders" class="lucide-sm"></i>
-          Settings & API Configuration
+          <i data-lucide="play-circle" class="lucide-sm" style="color: var(--primary);"></i>
+          Start Listening from Time
         </h3>
-        <button class="control-btn" id="closeSettingsBtn" style="padding: 4px 8px;">
+        <button class="control-btn" id="closeTimePickerBtn" style="padding: 4px 8px;">
           <i data-lucide="x" class="lucide-sm"></i>
         </button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Supabase URL</label>
-          <input type="text" id="cfgSupabaseUrl" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Supabase Anon Key</label>
-          <input type="password" id="cfgSupabaseAnonKey" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Groq API Key (AI Audio Transcription)</label>
-          <input type="password" id="cfgGroqApiKey" class="form-input" />
+        <p style="font-size: 12px; color: var(--on-surface-variant); margin-bottom: 12px;">
+          Choose a past time to continuously play all recorded radio transmissions chronologically from that point forward.
+        </p>
+
+        <!-- Quick Presets -->
+        <label class="form-label">Quick Jump Presets</label>
+        <div class="time-preset-grid">
+          <button class="time-preset-btn" data-minutes="5">5m ago</button>
+          <button class="time-preset-btn active" data-minutes="15">15m ago</button>
+          <button class="time-preset-btn" data-minutes="30">30m ago</button>
+          <button class="time-preset-btn" data-minutes="60">1 hour ago</button>
+          <button class="time-preset-btn" data-minutes="120">2 hours ago</button>
+          <button class="time-preset-btn" data-preset="today_start">Today (12 AM)</button>
         </div>
 
+        <!-- Custom Datetime Input -->
         <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Google Gemini API Key (Auto-Titling & Fallback Transcriber)</label>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" style="font-size: 11px; color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 3px;">
-              Get Free Key <i data-lucide="external-link" class="lucide-xs"></i>
-            </a>
-          </div>
-          <input type="password" id="cfgGeminiApiKey" class="form-input" placeholder="AIzaSy..." />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Default Audio Playback Speed</label>
-          <select id="cfgDefaultSpeed" class="form-input" style="cursor: pointer;">
-            <option value="0.5">0.5x (Slow)</option>
-            <option value="1.0" selected>1.0x (Normal Speed)</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x (Fast)</option>
-            <option value="1.75">1.75x</option>
-            <option value="2.0">2.0x (Double Speed)</option>
-            <option value="3.0">3.0x</option>
-            <option value="4.0">4.0x (Rapid Scan)</option>
-          </select>
-          <span style="font-size: 11px; color: var(--on-surface-variant); margin-top: 4px; display: block;">
-            Preset playback speed applied to all audio dispatch players automatically.
-          </span>
-        </div>
-
-        <div class="form-group" style="background: var(--surface-variant); padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--outline);">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <label class="form-label" style="margin-bottom: 2px; font-weight: 700; cursor: pointer;" for="cfgAutoTranscribeTones">
-                <i data-lucide="bell" class="lucide-xs" style="color: #fb7185; margin-right: 4px;"></i>
-                Auto-Transcribe Alert Tones
-              </label>
-              <span style="font-size: 11px; color: var(--on-surface-variant); display: block;">
-                Automatically transcribe & title incoming transmissions when emergency alert tones (3-beep bursts) are detected.
-              </span>
-            </div>
-            <label class="m3-checkbox" style="margin-left: 12px;">
-              <input type="checkbox" id="cfgAutoTranscribeTones" checked />
-              <span class="checkbox-box"></span>
-            </label>
+          <label class="form-label">Or Custom Date & Time</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <input type="date" id="timePickerDate" class="form-input" />
+            <input type="time" id="timePickerTime" class="form-input" step="1" />
           </div>
         </div>
 
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label class="form-label" style="margin-bottom: 0;">Cloudflare Proxy URL (Bypass School/Network Firewall)</label>
-            <span style="font-size: 11px; color: var(--on-surface-variant);">Optional</span>
+        <!-- Matching Preview -->
+        <div class="time-preview-banner">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="layers" class="lucide-sm" style="color: var(--primary);"></i>
+            <span id="timePickerMatchCount">Calculating clips...</span>
           </div>
-          <input type="text" id="cfgProxyUrl" class="form-input" placeholder="https://dispatch-proxy.your-name.workers.dev" />
-          <span style="font-size: 11px; color: var(--on-surface-variant); margin-top: 4px; display: block;">
-            Routes API calls through Cloudflare to bypass school SSL cert errors (<code>ERR_CERT_AUTHORITY_INVALID</code>) & Groq blocks.
-          </span>
+          <span style="font-size: 11px; color: #34d399; font-weight: 600;">Chronological</span>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-tonal" id="cancelSettingsBtn">Cancel</button>
-        <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+        <button class="btn btn-tonal" id="cancelTimePickerBtn">Cancel</button>
+        <button class="btn btn-primary" id="startTimePlaybackBtn">
+          <i data-lucide="play" class="lucide-sm"></i>
+          Start Listening
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transcribe by Time Window Modal -->
+  <div class="m3-modal-overlay" id="timeTranscribeModal">
+    <div class="m3-modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 style="font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="sparkles" class="lucide-sm" style="color: #10b981;"></i>
+          Transcribe Dispatches by Time Window
+        </h3>
+        <button class="control-btn" id="closeTimeTranscribeBtn" style="padding: 4px 8px;">
+          <i data-lucide="x" class="lucide-sm"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--on-surface-variant); margin-bottom: 14px;">
+          Automatically transcribe all transmissions captured within a specific minute duration around, before, or after a chosen time.
+        </p>
+
+        <!-- Target Time Picker -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Anchor / Target Time</label>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="btn btn-tonal btn-xs" id="transcribeTimeNowBtn" style="padding: 2px 6px; font-size: 10.5px;">Now</button>
+              <button type="button" class="btn btn-tonal btn-xs" id="transcribeTime15mBtn" style="padding: 2px 6px; font-size: 10.5px;">-15m</button>
+              <button type="button" class="btn btn-tonal btn-xs" id="transcribeTime1hBtn" style="padding: 2px 6px; font-size: 10.5px;">-1h</button>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <input type="date" id="transcribeTargetDate" class="form-input" />
+            <input type="time" id="transcribeTargetTime" class="form-input" step="1" />
+          </div>
+        </div>
+
+        <!-- Direction Selector: Around, Before, After -->
+        <div class="form-group">
+          <label class="form-label">Window Direction</label>
+          <div class="time-direction-grid">
+            <button class="time-direction-btn active" data-dir="around" title="± X minutes around target time">
+              <span>&plusmn; Around Time</span>
+            </button>
+            <button class="time-direction-btn" data-dir="before" title="X minutes before target time">
+              <i data-lucide="arrow-left" class="lucide-xs"></i>
+              <span>Before Time</span>
+            </button>
+            <button class="time-direction-btn" data-dir="after" title="X minutes after target time">
+              <span>After Time</span>
+              <i data-lucide="arrow-right" class="lucide-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Duration in Minutes -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Duration Window (Minutes)</label>
+            <span style="font-size: 12px; font-family: var(--font-mono); font-weight: 700; color: var(--primary);" id="transcribeDurLabel">15 minutes</span>
+          </div>
+          <div class="time-preset-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 8px;">
+            <button class="time-preset-btn dur-preset-btn" data-mins="5">5m</button>
+            <button class="time-preset-btn dur-preset-btn active" data-mins="15">15m</button>
+            <button class="time-preset-btn dur-preset-btn" data-mins="30">30m</button>
+            <button class="time-preset-btn dur-preset-btn" data-mins="60">60m</button>
+            <button class="time-preset-btn dur-preset-btn" data-mins="120">2 hrs</button>
+          </div>
+          <input type="range" class="m3-slider" id="transcribeMinutesSlider" min="1" max="180" value="15" />
+        </div>
+
+        <!-- Options -->
+        <div class="form-group" style="background: var(--surface-variant); padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--outline);">
+          <label class="m3-checkbox" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="transcribeOnlyPendingCheck" checked />
+            <span class="checkbox-box"></span>
+            <span style="font-size: 12px; color: var(--on-surface);">Only transcribe untranscribed clips (Skip already transcribed)</span>
+          </label>
+        </div>
+
+        <!-- Matching Clips Preview Banner -->
+        <div class="time-preview-banner">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="sparkles" class="lucide-sm" style="color: #10b981;"></i>
+            <span id="transcribeMatchCount">Calculating matching clips...</span>
+          </div>
+          <span style="font-size: 11px; font-family: var(--font-mono); color: var(--on-surface-variant);" id="transcribeRangeTime">--</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-tonal" id="cancelTimeTranscribeBtn">Cancel</button>
+        <button class="btn btn-primary" id="startTimeTranscribeBtn">
+          <i data-lucide="sparkles" class="lucide-sm"></i>
+          <span id="startTimeTranscribeBtnText">Start AI Transcribing</span>
+        </button>
       </div>
     </div>
   </div>
@@ -2622,6 +3879,7 @@
       groqApiKey: '',
       geminiApiKey: '',
       proxyUrl: '',
+      streamUrl: 'https://hls-o1.broadcastify.com/s0/feed/46604/playlist.m3u8',
       defaultSpeed: '1.0',
       autoTranscribeTones: true
     };
@@ -2654,6 +3912,29 @@
     let statusChannel = null;
     let lastHeartbeatTimestamp = 0;
     let heartbeatCheckTimer = null;
+
+    // --- Live Stream Audio Player State ---
+    let liveAudioElement = null;
+    let liveHlsInstance = null;
+    let liveIsPlaying = false;
+    let liveElapsedSeconds = 0;
+    let liveElapsedInterval = null;
+
+    // --- Continuous Chronological Feed Player State ---
+    let continuousQueue = [];
+    let continuousIndex = -1;
+    let continuousAudio = null;
+    let continuousIsPlaying = false;
+    let continuousAutoScroll = true;
+    let continuousAutoAdvance = true;
+    let continuousInterClipTimer = null;
+    let continuousSpeed = 1.0;
+    let continuousStandby = false;
+
+    // --- Time Transcribe Modal State ---
+    let timeTranscribeTargetDate = new Date();
+    let timeTranscribeDirection = 'around';
+    let timeTranscribeMinutes = 15;
 
     // ==============================================================================
     // AUTHENTICATION (Server-Side Verified via Supabase RPC)
@@ -2767,25 +4048,58 @@
     }
 
     // ==============================================================================
-    // LIVE AUDIO RECORDING STATUS INDICATOR
+    // LIVE AUDIO RECORDING STATUS & TELEMETRY INDICATOR
     // ==============================================================================
-    function setAudioStatus(state, duration = 0, dbfs = 0) {
-      const badge = document.getElementById('liveAudioStatus');
-      const text = document.getElementById('liveStatusText');
-      if (!badge || !text) return;
+    let currentVADState = 'OFFLINE';
+    let currentVADDbfs = -45.0;
+    let currentVADDuration = 0;
 
-      badge.classList.remove('monitoring', 'recording', 'offline');
+    function setAudioStatus(state, duration = 0, dbfs = 0) {
+      currentVADState = state;
+      currentVADDuration = duration;
+      currentVADDbfs = dbfs;
+
+      const capsule = document.getElementById('unifiedLiveCapsule');
+      const label = document.getElementById('unifiedLiveLabel');
+      const popoverVad = document.getElementById('popoverVadState');
+      const popoverDbfs = document.getElementById('popoverDbfs');
+      const popoverDuration = document.getElementById('popoverSliceDuration');
+      const popoverFeed = document.getElementById('popoverFeedStatus');
+      const popoverDot = document.getElementById('popoverStatusDot');
+
+      // Update Popover Telemetry Cells
+      if (popoverVad) popoverVad.textContent = state;
+      if (popoverDbfs) popoverDbfs.textContent = dbfs !== 0 ? `${dbfs.toFixed(1)} dB` : '-';
+      if (popoverDuration) popoverDuration.textContent = duration > 0 ? `${duration.toFixed(1)}s` : '0.0s';
+      if (popoverFeed) {
+        popoverFeed.textContent = (state === 'OFFLINE') ? 'OFFLINE' : (liveIsPlaying ? 'STREAMING' : 'ONLINE');
+        popoverFeed.style.color = (state === 'OFFLINE') ? '#ef4444' : (liveIsPlaying ? '#f87171' : '#34d399');
+      }
+      if (popoverDot) {
+        popoverDot.style.background = (state === 'OFFLINE') ? '#6b7280' : (liveIsPlaying ? '#ef4444' : (state === 'RECORDING' ? '#f59e0b' : '#10b981'));
+      }
+
+      if (!capsule || !label) return;
+
+      // If active live streaming audio is playing, retain streaming visual style
+      if (liveIsPlaying) {
+        capsule.className = 'unified-live-capsule streaming';
+        label.textContent = 'LIVE RADIO';
+        return;
+      }
+
+      capsule.classList.remove('online', 'recording', 'offline', 'streaming');
 
       if (state === 'RECORDING') {
-        badge.classList.add('recording');
-        const durStr = duration > 0 ? ` (${duration.toFixed(1)}s)` : '';
-        text.textContent = `RECORDING${durStr}`;
+        capsule.classList.add('recording');
+        const durStr = duration > 0 ? ` ${duration.toFixed(1)}s` : '';
+        label.textContent = `REC${durStr}`;
       } else if (state === 'MONITORING' || state === 'IDLE' || state === 'LISTENING') {
-        badge.classList.add('monitoring');
-        text.textContent = 'LISTENING';
+        capsule.classList.add('online');
+        label.textContent = 'LIVE MONITOR';
       } else {
-        badge.classList.add('offline');
-        text.textContent = 'OFFLINE';
+        capsule.classList.add('offline');
+        label.textContent = 'OFFLINE';
       }
     }
 
@@ -2813,6 +4127,309 @@
 
     let currentClientUrl = '';
     let currentClientKey = '';
+    let currentOpenPanel = null;
+
+    function syncSettingsTilesUI() {
+      // 1. Groq
+      const badgeGroq = document.getElementById('badgeGroq');
+      const prevGroq = document.getElementById('previewGroq');
+      const hasGroq = !!(config.groqApiKey && config.groqApiKey.trim());
+      if (badgeGroq) {
+        badgeGroq.textContent = hasGroq ? 'Configured ✓' : 'Required';
+        badgeGroq.className = `tile-status-badge ${hasGroq ? 'active' : 'warning'}`;
+      }
+      if (prevGroq) {
+        prevGroq.textContent = hasGroq ? `${config.groqApiKey.slice(0, 7)}••••••••` : 'No key entered';
+      }
+
+      // 2. Gemini
+      const badgeGemini = document.getElementById('badgeGemini');
+      const prevGemini = document.getElementById('previewGemini');
+      const hasGemini = !!(config.geminiApiKey && config.geminiApiKey.trim());
+      if (badgeGemini) {
+        badgeGemini.textContent = hasGemini ? 'Configured ✓' : 'Optional';
+        badgeGemini.className = `tile-status-badge ${hasGemini ? 'active' : ''}`;
+      }
+      if (prevGemini) {
+        prevGemini.textContent = hasGemini ? `${config.geminiApiKey.slice(0, 6)}••••••••` : 'Free AI Studio key';
+      }
+
+      // 3. Supabase
+      const badgeSupa = document.getElementById('badgeSupabase');
+      const prevSupa = document.getElementById('previewSupabase');
+      const hasSupa = !!(config.supabaseUrl && config.supabaseAnonKey);
+      if (badgeSupa) {
+        badgeSupa.textContent = hasSupa ? 'Connected ✓' : 'Incomplete';
+        badgeSupa.className = `tile-status-badge ${hasSupa ? 'active' : 'warning'}`;
+      }
+      if (prevSupa) {
+        prevSupa.textContent = hasSupa ? config.supabaseUrl.replace(/^https?:\/\//, '').slice(0, 16) + '...' : 'Missing credentials';
+      }
+
+      // 4. Stream URL
+      const badgeStream = document.getElementById('badgeStream');
+      const prevStream = document.getElementById('previewStream');
+      const isCustomStream = !!(config.streamUrl && !config.streamUrl.includes('46604'));
+      if (badgeStream) {
+        badgeStream.textContent = isCustomStream ? 'Custom Feed' : 'Feed 46604';
+        badgeStream.className = 'tile-status-badge active';
+      }
+      if (prevStream) {
+        prevStream.textContent = isCustomStream ? (config.streamUrl.replace(/^https?:\/\//, '').slice(0, 18) + '...') : 'Default Feed';
+      }
+
+      // 5. Cloudflare Proxy
+      const badgeProxy = document.getElementById('badgeProxy');
+      const prevProxy = document.getElementById('previewProxy');
+      const hasProxy = !!(config.proxyUrl && config.proxyUrl.trim());
+      if (badgeProxy) {
+        badgeProxy.textContent = hasProxy ? 'Active ✓' : 'Direct';
+        badgeProxy.className = `tile-status-badge ${hasProxy ? 'active' : ''}`;
+      }
+      if (prevProxy) {
+        prevProxy.textContent = hasProxy ? (config.proxyUrl.replace(/^https?:\/\//, '').slice(0, 18) + '...') : 'Direct connection';
+      }
+
+      // 6. Playback & Automation
+      const badgeSpeed = document.getElementById('badgePlaybackSpeed');
+      const prevTones = document.getElementById('previewTones');
+      if (badgeSpeed) {
+        badgeSpeed.textContent = `${config.defaultSpeed || '1.0'}x Speed`;
+        badgeSpeed.className = 'tile-status-badge active';
+      }
+      if (prevTones) {
+        prevTones.textContent = `Tones Auto: ${config.autoTranscribeTones !== false ? 'On' : 'Off'}`;
+      }
+    }
+
+    function openSettingsSubPanel(panelKey) {
+      currentOpenPanel = panelKey;
+      const tilesGrid = document.getElementById('settingsTilesGrid');
+      const subPanel = document.getElementById('settingsSubPanel');
+      const titleEl = document.getElementById('subPanelTitle');
+      const contentEl = document.getElementById('subPanelContent');
+
+      if (!subPanel || !contentEl) return;
+
+      tilesGrid.style.display = 'none';
+      subPanel.style.display = 'flex';
+
+      if (panelKey === 'groq') {
+        if (titleEl) titleEl.textContent = 'Groq Whisper';
+        contentEl.innerHTML = `
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <label class="form-label" style="margin: 0;">API Key</label>
+              <a href="https://console.groq.com/keys" target="_blank" class="card-icon-btn" title="Open Groq Console" style="padding: 4px; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                <i data-lucide="external-link" class="lucide-xs"></i>
+              </a>
+            </div>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="subInputGroq" class="form-input" style="width: 100%; padding-right: 36px;" value="${escapeHtml(config.groqApiKey || '')}" placeholder="API Key..." />
+              <button type="button" class="card-icon-btn" id="toggleShowGroqKey" style="position: absolute; right: 6px; padding: 4px;" title="Show/Hide">
+                <i data-lucide="eye" class="lucide-sm"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      } else if (panelKey === 'gemini') {
+        if (titleEl) titleEl.textContent = 'Google Gemini';
+        contentEl.innerHTML = `
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <label class="form-label" style="margin: 0;">API Key</label>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" class="card-icon-btn" title="Open Google AI Studio" style="padding: 4px; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                <i data-lucide="external-link" class="lucide-xs"></i>
+              </a>
+            </div>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="subInputGemini" class="form-input" style="width: 100%; padding-right: 36px;" value="${escapeHtml(config.geminiApiKey || '')}" placeholder="API Key..." />
+              <button type="button" class="card-icon-btn" id="toggleShowGeminiKey" style="position: absolute; right: 6px; padding: 4px;" title="Show/Hide">
+                <i data-lucide="eye" class="lucide-sm"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      } else if (panelKey === 'supabase') {
+        if (titleEl) titleEl.textContent = 'Supabase Database';
+        contentEl.innerHTML = `
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <label class="form-label" style="margin: 0;">Project URL</label>
+              <a href="https://supabase.com/dashboard" target="_blank" class="card-icon-btn" title="Open Supabase Dashboard" style="padding: 4px; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                <i data-lucide="external-link" class="lucide-xs"></i>
+              </a>
+            </div>
+            <input type="text" id="subInputSupabaseUrl" class="form-input" value="${escapeHtml(config.supabaseUrl || '')}" placeholder="https://xyz.supabase.co" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Anon Key</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="subInputSupabaseKey" class="form-input" style="width: 100%; padding-right: 36px;" value="${escapeHtml(config.supabaseAnonKey || '')}" placeholder="Anon Key..." />
+              <button type="button" class="card-icon-btn" id="toggleShowSupaKey" style="position: absolute; right: 6px; padding: 4px;" title="Show/Hide">
+                <i data-lucide="eye" class="lucide-sm"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      } else if (panelKey === 'stream') {
+        if (titleEl) titleEl.textContent = 'Live Radio Stream';
+        contentEl.innerHTML = `
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label class="form-label" style="margin: 0;">Feed URL</label>
+                <a href="https://www.broadcastify.com/listen/feed/46604" target="_blank" class="card-icon-btn" title="Open Broadcastify" style="padding: 4px; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                  <i data-lucide="external-link" class="lucide-xs"></i>
+                </a>
+              </div>
+              <button type="button" class="btn btn-tonal btn-xs" id="subStreamResetDefaultBtn">Default Feed 46604</button>
+            </div>
+            <input type="text" id="subInputStreamUrl" class="form-input" value="${escapeHtml(config.streamUrl || 'https://hls-o1.broadcastify.com/s0/feed/46604/playlist.m3u8')}" />
+          </div>
+        `;
+      } else if (panelKey === 'proxy') {
+        if (titleEl) titleEl.textContent = 'Cloudflare Proxy';
+        contentEl.innerHTML = `
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <label class="form-label" style="margin: 0;">Proxy URL</label>
+              <a href="https://dash.cloudflare.com" target="_blank" class="card-icon-btn" title="Open Cloudflare Dashboard" style="padding: 4px; color: var(--primary); display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                <i data-lucide="external-link" class="lucide-xs"></i>
+              </a>
+            </div>
+            <input type="text" id="subInputProxyUrl" class="form-input" value="${escapeHtml(config.proxyUrl || '')}" placeholder="https://..." />
+          </div>
+        `;
+      } else if (panelKey === 'playback') {
+        if (titleEl) titleEl.textContent = 'Audio & Alerts';
+        contentEl.innerHTML = `
+          <div class="form-group">
+            <label class="form-label">Default Playback Speed</label>
+            <select id="subInputSpeed" class="form-input" style="cursor: pointer;">
+              <option value="0.5" ${config.defaultSpeed === '0.5' ? 'selected' : ''}>0.5x (Slow)</option>
+              <option value="1.0" ${(!config.defaultSpeed || config.defaultSpeed === '1.0') ? 'selected' : ''}>1.0x (Normal)</option>
+              <option value="1.25" ${config.defaultSpeed === '1.25' ? 'selected' : ''}>1.25x</option>
+              <option value="1.5" ${config.defaultSpeed === '1.5' ? 'selected' : ''}>1.5x (Fast)</option>
+              <option value="1.75" ${config.defaultSpeed === '1.75' ? 'selected' : ''}>1.75x</option>
+              <option value="2.0" ${config.defaultSpeed === '2.0' ? 'selected' : ''}>2.0x (Double Speed)</option>
+              <option value="3.0" ${config.defaultSpeed === '3.0' ? 'selected' : ''}>3.0x</option>
+              <option value="4.0" ${config.defaultSpeed === '4.0' ? 'selected' : ''}>4.0x (Rapid Scan)</option>
+            </select>
+          </div>
+          <div class="form-group" style="background: var(--surface-variant); padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--outline); margin-top: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label class="form-label" style="margin-bottom: 0; font-weight: 700; cursor: pointer;" for="subInputAutoTones">
+                <i data-lucide="bell" class="lucide-xs" style="color: #fb7185; margin-right: 4px;"></i>
+                Auto-Transcribe Alert Tones
+              </label>
+              <label class="m3-checkbox" style="margin-left: 12px;">
+                <input type="checkbox" id="subInputAutoTones" ${config.autoTranscribeTones !== false ? 'checked' : ''} />
+                <span class="checkbox-box"></span>
+              </label>
+            </div>
+          </div>
+        `;
+      }
+
+      // Wire helper toggles
+      const toggleGroq = document.getElementById('toggleShowGroqKey');
+      if (toggleGroq) {
+        toggleGroq.addEventListener('click', () => {
+          const inp = document.getElementById('subInputGroq');
+          if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+        });
+      }
+
+      const toggleGemini = document.getElementById('toggleShowGeminiKey');
+      if (toggleGemini) {
+        toggleGemini.addEventListener('click', () => {
+          const inp = document.getElementById('subInputGemini');
+          if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+        });
+      }
+
+      const toggleSupa = document.getElementById('toggleShowSupaKey');
+      if (toggleSupa) {
+        toggleSupa.addEventListener('click', () => {
+          const inp = document.getElementById('subInputSupabaseKey');
+          if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+        });
+      }
+
+      const resetStream = document.getElementById('subStreamResetDefaultBtn');
+      if (resetStream) {
+        resetStream.addEventListener('click', () => {
+          const inp = document.getElementById('subInputStreamUrl');
+          if (inp) inp.value = 'https://hls-o1.broadcastify.com/s0/feed/46604/playlist.m3u8';
+        });
+      }
+
+      refreshLucideIcons();
+    }
+
+    function saveSettingsSubPanelValues() {
+      if (currentOpenPanel === 'groq') {
+        const inp = document.getElementById('subInputGroq');
+        if (inp) {
+          config.groqApiKey = inp.value.trim();
+          document.getElementById('cfgGroqApiKey').value = config.groqApiKey;
+        }
+      } else if (currentOpenPanel === 'gemini') {
+        const inp = document.getElementById('subInputGemini');
+        if (inp) {
+          config.geminiApiKey = inp.value.trim();
+          document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey;
+        }
+      } else if (currentOpenPanel === 'supabase') {
+        const urlInp = document.getElementById('subInputSupabaseUrl');
+        const keyInp = document.getElementById('subInputSupabaseKey');
+        if (urlInp) {
+          config.supabaseUrl = urlInp.value.trim();
+          document.getElementById('cfgSupabaseUrl').value = config.supabaseUrl;
+        }
+        if (keyInp) {
+          config.supabaseAnonKey = keyInp.value.trim();
+          document.getElementById('cfgSupabaseAnonKey').value = config.supabaseAnonKey;
+        }
+      } else if (currentOpenPanel === 'stream') {
+        const inp = document.getElementById('subInputStreamUrl');
+        if (inp) {
+          config.streamUrl = inp.value.trim() || 'https://hls-o1.broadcastify.com/s0/feed/46604/playlist.m3u8';
+          document.getElementById('cfgStreamUrl').value = config.streamUrl;
+        }
+      } else if (currentOpenPanel === 'proxy') {
+        const inp = document.getElementById('subInputProxyUrl');
+        if (inp) {
+          config.proxyUrl = inp.value.trim();
+          document.getElementById('cfgProxyUrl').value = config.proxyUrl;
+        }
+      } else if (currentOpenPanel === 'playback') {
+        const speedInp = document.getElementById('subInputSpeed');
+        const tonesInp = document.getElementById('subInputAutoTones');
+        if (speedInp) {
+          config.defaultSpeed = speedInp.value;
+          document.getElementById('cfgDefaultSpeed').value = config.defaultSpeed;
+        }
+        if (tonesInp) {
+          config.autoTranscribeTones = tonesInp.checked;
+          document.getElementById('cfgAutoTranscribeTones').checked = config.autoTranscribeTones;
+        }
+      }
+    }
+
+    function closeSettingsSubPanel() {
+      saveSettingsSubPanelValues();
+      const tilesGrid = document.getElementById('settingsTilesGrid');
+      const subPanel = document.getElementById('settingsSubPanel');
+      if (tilesGrid && subPanel) {
+        subPanel.style.display = 'none';
+        tilesGrid.style.display = 'grid';
+      }
+      currentOpenPanel = null;
+      syncSettingsTilesUI();
+      refreshLucideIcons();
+    }
 
     async function loadConfig() {
       const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
@@ -2824,6 +4441,10 @@
       document.getElementById('cfgGroqApiKey').value = config.groqApiKey || '';
       document.getElementById('cfgGeminiApiKey').value = config.geminiApiKey || '';
       document.getElementById('cfgProxyUrl').value = config.proxyUrl || '';
+      const streamInput = document.getElementById('cfgStreamUrl');
+      if (streamInput) {
+        streamInput.value = config.streamUrl || 'https://hls-o1.broadcastify.com/s0/feed/46604/playlist.m3u8';
+      }
       const autoTonesToggle = document.getElementById('cfgAutoTranscribeTones');
       if (autoTonesToggle) {
         autoTonesToggle.checked = config.autoTranscribeTones !== false;
@@ -2832,6 +4453,7 @@
       if (speedSelect) {
         speedSelect.value = config.defaultSpeed || '1.0';
       }
+      syncSettingsTilesUI();
 
       // Gracefully sync keys from backend database if available
       if (supabaseClient) {
@@ -2879,6 +4501,17 @@
             document.getElementById('cfgProxyUrl').value = proxyData.value;
           }
 
+          const { data: streamData } = await supabaseClient
+            .from('app_config')
+            .select('value')
+            .eq('key', 'stream_url')
+            .maybeSingle();
+
+          if (streamData && streamData.value) {
+            config.streamUrl = streamData.value;
+            if (streamInput) streamInput.value = streamData.value;
+          }
+
           const { data: speedData } = await supabaseClient
             .from('app_config')
             .select('value')
@@ -2891,6 +4524,7 @@
           }
 
           localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+          syncSettingsTilesUI();
         } catch (err) {
           // Table may not be created yet, fallback to localStorage
         }
@@ -2898,11 +4532,16 @@
     }
 
     async function saveConfig() {
+      saveSettingsSubPanelValues();
       config.supabaseUrl = document.getElementById('cfgSupabaseUrl').value.trim();
       config.supabaseAnonKey = document.getElementById('cfgSupabaseAnonKey').value.trim();
       config.groqApiKey = document.getElementById('cfgGroqApiKey').value.trim();
       config.geminiApiKey = document.getElementById('cfgGeminiApiKey').value.trim();
       config.proxyUrl = document.getElementById('cfgProxyUrl').value.trim();
+      const streamInput = document.getElementById('cfgStreamUrl');
+      if (streamInput && streamInput.value.trim()) {
+        config.streamUrl = streamInput.value.trim();
+      }
       const autoTonesToggle = document.getElementById('cfgAutoTranscribeTones');
       if (autoTonesToggle) {
         config.autoTranscribeTones = autoTonesToggle.checked;
@@ -2913,6 +4552,7 @@
       }
 
       localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+      syncSettingsTilesUI();
       showToast('Settings saved!', 'success');
       closeModal();
       initSupabase();
@@ -2944,6 +4584,13 @@
             await supabaseClient.from('app_config').upsert({
               key: 'proxy_url',
               value: config.proxyUrl,
+              updated_at: new Date().toISOString()
+            });
+          }
+          if (config.streamUrl) {
+            await supabaseClient.from('app_config').upsert({
+              key: 'stream_url',
+              value: config.streamUrl,
               updated_at: new Date().toISOString()
             });
           }
@@ -3105,6 +4752,16 @@
             showToast(`New transmission slice saved (${payload.new.duration}s)`, 'info');
             dispatches.unshift(payload.new);
             render();
+
+            // Seamless Real-time Continuous Feed Playback
+            if (continuousQueue && continuousQueue.length > 0) {
+              const wasInStandby = continuousStandby;
+              continuousQueue.push(payload.new);
+              updateContinuousQueueUI();
+              if (wasInStandby) {
+                playContinuousClip(continuousQueue.length - 1);
+              }
+            }
 
             // Auto-transcribe incoming clips with alert tones if enabled in settings
             const meta = (typeof payload.new.metadata === 'object' && payload.new.metadata !== null) ? payload.new.metadata : {};
@@ -3635,6 +5292,10 @@
               ${tonesBtn}
               ${savedBadge}
               ${statusBadge}
+              <button class="card-icon-btn play-from-here-btn" data-id="${clip.id}" title="Start continuous listening feed from this clip forward">
+                <i data-lucide="play-circle" class="lucide-sm" style="color: var(--primary);"></i>
+                <span>Play Feed</span>
+              </button>
               <button class="card-icon-btn save-star-btn ${isSaved ? 'is-saved' : ''}" data-id="${clip.id}" title="${isSaved ? 'Unsave' : 'Save (Retain permanently)'}">
                 <i data-lucide="bookmark" class="lucide-sm"></i>
                 ${isSaved ? 'Saved' : 'Save'}
@@ -3981,11 +5642,32 @@
         });
       });
 
+      // Start continuous playback starting from specific card
+      document.querySelectorAll('.play-from-here-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          startContinuousPlaybackFromClip(id);
+        });
+      });
+
       document.querySelectorAll('.m3-play-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const audioId = btn.getAttribute('data-audio-id');
           const audio = document.getElementById(audioId);
           if (!audio) return;
+
+          // Pause live radio stream if playing
+          if (liveIsPlaying) {
+            stopListenLive();
+          }
+
+          // Pause continuous feed player if playing
+          if (continuousIsPlaying && continuousAudio) {
+            continuousAudio.pause();
+            continuousIsPlaying = false;
+            updateContinuousPlayBtnUI();
+          }
 
           if (currentlyPlayingAudio && currentlyPlayingAudio !== audio) {
             currentlyPlayingAudio.pause();
@@ -4953,8 +6635,622 @@
     }
 
     // ==============================================================================
-    // EVENT LISTENERS & UI HELPERS
+    // 1. LIVE RADIO STREAMING ENGINE (HLS.js + Broadcastify 24/7 Feed)
     // ==============================================================================
+    function initLiveAudio() {
+      if (!liveAudioElement) {
+        liveAudioElement = new Audio();
+        liveAudioElement.crossOrigin = 'anonymous';
+
+        liveAudioElement.addEventListener('playing', () => {
+          liveIsPlaying = true;
+          updateLiveUIState();
+          startLiveElapsedTimer();
+        });
+
+        liveAudioElement.addEventListener('pause', () => {
+          liveIsPlaying = false;
+          updateLiveUIState();
+          stopLiveElapsedTimer();
+        });
+
+        liveAudioElement.addEventListener('waiting', () => {
+          const badge = document.getElementById('liveBannerStatus');
+          if (badge) badge.textContent = 'BUFFERING';
+        });
+
+        liveAudioElement.addEventListener('error', e => {
+          console.warn('Live audio error event:', e);
+        });
+      }
+    }
+
+    function toggleListenLive() {
+      if (liveIsPlaying) {
+        stopListenLive();
+      } else {
+        startListenLive();
+      }
+    }
+
+    function toggleLivePopover(forceOpen = null) {
+      const popover = document.getElementById('liveFlyoutPopover');
+      const toggleBtn = document.getElementById('unifiedPopoverToggle');
+      if (!popover || !toggleBtn) return;
+
+      const shouldOpen = forceOpen !== null ? forceOpen : !popover.classList.contains('open');
+      popover.classList.toggle('open', shouldOpen);
+      toggleBtn.classList.toggle('open', shouldOpen);
+      refreshLucideIcons();
+    }
+
+    function closeLivePopover() {
+      toggleLivePopover(false);
+    }
+
+    function startListenLive() {
+      initLiveAudio();
+
+      // Pause single dispatch audio player
+      if (currentlyPlayingAudio) {
+        currentlyPlayingAudio.pause();
+        if (currentlyPlayingBtn) {
+          currentlyPlayingBtn.innerHTML = '<i data-lucide="play" class="lucide"></i>';
+          refreshLucideIcons();
+        }
+      }
+
+      // Pause continuous feed player
+      if (continuousIsPlaying && continuousAudio) {
+        continuousAudio.pause();
+        continuousIsPlaying = false;
+        updateContinuousPlayBtnUI();
+      }
+
+      const streamUrl = (config.streamUrl || 'https://hls-o1.broadcastify.com/s0/feed/46604/playlist.m3u8').trim();
+      const capsule = document.getElementById('unifiedLiveCapsule');
+      const label = document.getElementById('unifiedLiveLabel');
+      const popoverFeed = document.getElementById('popoverFeedStatus');
+      const popoverDot = document.getElementById('popoverStatusDot');
+
+      if (capsule) {
+        capsule.className = 'unified-live-capsule streaming';
+      }
+      if (label) label.textContent = 'CONNECTING...';
+      if (popoverFeed) {
+        popoverFeed.textContent = 'CONNECTING';
+        popoverFeed.style.color = '#fbbf24';
+      }
+      if (popoverDot) popoverDot.style.background = '#fbbf24';
+
+      if (window.Hls && Hls.isSupported() && (streamUrl.includes('.m3u8') || !liveAudioElement.canPlayType('application/vnd.apple.mpegurl'))) {
+        if (liveHlsInstance) {
+          liveHlsInstance.destroy();
+        }
+        liveHlsInstance = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 30
+        });
+
+        liveHlsInstance.loadSource(streamUrl);
+        liveHlsInstance.attachMedia(liveAudioElement);
+
+        liveHlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          liveAudioElement.play().then(() => {
+            liveIsPlaying = true;
+            updateLiveUIState();
+          }).catch(e => {
+            console.warn('Live play prevented:', e);
+          });
+        });
+
+        liveHlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                if (config.proxyUrl && !streamUrl.includes(config.proxyUrl)) {
+                  const proxied = buildProxiedUrl(streamUrl);
+                  liveHlsInstance.loadSource(proxied);
+                  liveHlsInstance.startLoad();
+                  return;
+                }
+                liveHlsInstance.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                liveHlsInstance.recoverMediaError();
+                break;
+              default:
+                stopListenLive();
+                showToast('Live stream connection failed.', 'error');
+                break;
+            }
+          }
+        });
+      } else {
+        liveAudioElement.src = streamUrl;
+        liveAudioElement.play().then(() => {
+          liveIsPlaying = true;
+          updateLiveUIState();
+        }).catch(e => {
+          console.warn('Native HLS/audio playback error:', e);
+          showToast('Could not start live stream: ' + e.message, 'error');
+          stopListenLive();
+        });
+      }
+
+      refreshLucideIcons();
+    }
+
+    function stopListenLive() {
+      if (liveAudioElement) {
+        liveAudioElement.pause();
+        liveAudioElement.src = '';
+      }
+      if (liveHlsInstance) {
+        liveHlsInstance.destroy();
+        liveHlsInstance = null;
+      }
+      liveIsPlaying = false;
+      stopLiveElapsedTimer();
+
+      updateLiveUIState();
+      // Restore VAD recorder visual state
+      setAudioStatus(currentVADState, currentVADDuration, currentVADDbfs);
+      refreshLucideIcons();
+    }
+
+    function updateLiveUIState() {
+      const capsule = document.getElementById('unifiedLiveCapsule');
+      const label = document.getElementById('unifiedLiveLabel');
+      const popoverFeed = document.getElementById('popoverFeedStatus');
+      const popoverDot = document.getElementById('popoverStatusDot');
+
+      if (liveIsPlaying) {
+        if (capsule) capsule.className = 'unified-live-capsule streaming';
+        if (label) label.textContent = 'LIVE RADIO';
+        if (popoverFeed) {
+          popoverFeed.textContent = 'STREAMING';
+          popoverFeed.style.color = '#f87171';
+        }
+        if (popoverDot) popoverDot.style.background = '#ef4444';
+      } else {
+        setAudioStatus(currentVADState, currentVADDuration, currentVADDbfs);
+      }
+      refreshLucideIcons();
+    }
+
+    function startLiveElapsedTimer() {
+      stopLiveElapsedTimer();
+      liveElapsedSeconds = 0;
+      const timerEl = document.getElementById('liveElapsedTimer');
+      if (timerEl) timerEl.textContent = 'Live 00:00';
+      liveElapsedInterval = setInterval(() => {
+        liveElapsedSeconds++;
+        const mins = String(Math.floor(liveElapsedSeconds / 60)).padStart(2, '0');
+        const secs = String(liveElapsedSeconds % 60).padStart(2, '0');
+        if (timerEl) timerEl.textContent = `Live ${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function stopLiveElapsedTimer() {
+      if (liveElapsedInterval) {
+        clearInterval(liveElapsedInterval);
+        liveElapsedInterval = null;
+      }
+    }
+
+    // ==============================================================================
+    // 2. CHRONOLOGICAL CONTINUOUS DISPATCH FEED PLAYER ENGINE
+    // ==============================================================================
+    function initContinuousAudio() {
+      if (!continuousAudio) {
+        continuousAudio = new Audio();
+        continuousAudio.crossOrigin = 'anonymous';
+
+        continuousAudio.addEventListener('playing', () => {
+          continuousIsPlaying = true;
+          continuousStandby = false;
+          updateContinuousPlayBtnUI();
+        });
+
+        continuousAudio.addEventListener('pause', () => {
+          continuousIsPlaying = false;
+          updateContinuousPlayBtnUI();
+        });
+
+        continuousAudio.addEventListener('timeupdate', () => {
+          if (!isNaN(continuousAudio.duration) && continuousAudio.duration > 0) {
+            const scrub = document.getElementById('continuousScrub');
+            const curTime = document.getElementById('continuousCurTime');
+            const totalTime = document.getElementById('continuousTotalTime');
+            if (scrub) scrub.value = (continuousAudio.currentTime / continuousAudio.duration) * 100;
+            if (curTime) curTime.textContent = formatAudioSeconds(continuousAudio.currentTime);
+            if (totalTime) totalTime.textContent = formatAudioSeconds(continuousAudio.duration);
+          }
+        });
+
+        // 1-second agreed inter-clip pacing before playing the next chronological clip
+        continuousAudio.addEventListener('ended', () => {
+          if (continuousAutoAdvance) {
+            const queueBadge = document.getElementById('continuousQueueBadge');
+            if (queueBadge) queueBadge.textContent = 'Next clip in 1s...';
+            
+            clearTimeout(continuousInterClipTimer);
+            continuousInterClipTimer = setTimeout(() => {
+              if (continuousIndex < continuousQueue.length - 1) {
+                playContinuousClip(continuousIndex + 1);
+              } else {
+                enterContinuousStandby();
+              }
+            }, 1000);
+          } else {
+            continuousIsPlaying = false;
+            updateContinuousPlayBtnUI();
+          }
+        });
+
+        continuousAudio.addEventListener('error', e => {
+          console.warn('Continuous audio error:', e);
+          // Auto skip to next if audio fails to load
+          if (continuousIndex < continuousQueue.length - 1) {
+            setTimeout(() => playContinuousClip(continuousIndex + 1), 1000);
+          }
+        });
+      }
+    }
+
+    function startContinuousPlaybackFromTime(targetDate) {
+      initContinuousAudio();
+      stopListenLive();
+
+      const targetMs = targetDate.getTime();
+      // Filter clips at or after target timestamp, sorted chronologically ascending (oldest to newest)
+      const matching = dispatches
+        .filter(d => new Date(d.created_at || 0).getTime() >= targetMs)
+        .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+
+      if (matching.length === 0) {
+        showToast('No recorded clips after that timestamp. Listening to latest feed.', 'info');
+        // Fallback: take recent clips
+        continuousQueue = [...dispatches].reverse();
+      } else {
+        continuousQueue = matching;
+      }
+
+      const bar = document.getElementById('continuousPlayerBar');
+      if (bar) bar.classList.add('active');
+
+      playContinuousClip(0);
+    }
+
+    function startContinuousPlaybackFromClip(clipId) {
+      initContinuousAudio();
+      stopListenLive();
+
+      const targetClip = dispatches.find(d => String(d.id) === String(clipId));
+      if (!targetClip) return;
+
+      const targetMs = new Date(targetClip.created_at || 0).getTime();
+      // Find all clips from this clip forward in time, ascending
+      continuousQueue = dispatches
+        .filter(d => new Date(d.created_at || 0).getTime() >= targetMs)
+        .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+
+      const bar = document.getElementById('continuousPlayerBar');
+      if (bar) bar.classList.add('active');
+
+      playContinuousClip(0);
+    }
+
+    function playContinuousClip(index) {
+      initContinuousAudio();
+      clearTimeout(continuousInterClipTimer);
+
+      if (index < 0) index = 0;
+      if (index >= continuousQueue.length) {
+        enterContinuousStandby();
+        return;
+      }
+
+      continuousStandby = false;
+      continuousIndex = index;
+      const clip = continuousQueue[index];
+      if (!clip) return;
+
+      const meta = (typeof clip.metadata === 'object' && clip.metadata !== null) ? clip.metadata : {};
+      const title = meta.title || clip.title || `Dispatch #${clip.id}`;
+      const hasTones = !!(meta.has_tones || meta.tones || clip.has_tones);
+      const createdDate = new Date(clip.created_at || Date.now());
+      const timeStr = createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const durationSec = parseFloat(clip.duration || 0).toFixed(1);
+
+      // Update Floating Dock UI
+      const titleEl = document.getElementById('continuousTitle');
+      const timeEl = document.getElementById('continuousTime');
+      const durEl = document.getElementById('continuousDuration');
+      const toneBadge = document.getElementById('continuousToneBadge');
+      const queueBadge = document.getElementById('continuousQueueBadge');
+
+      if (titleEl) titleEl.textContent = title;
+      if (timeEl) timeEl.textContent = timeStr;
+      if (durEl) durEl.textContent = `${durationSec}s`;
+      if (toneBadge) toneBadge.style.display = hasTones ? 'inline-flex' : 'none';
+
+      if (queueBadge) {
+        queueBadge.classList.remove('standby');
+        queueBadge.textContent = `Clip ${index + 1} of ${continuousQueue.length}`;
+      }
+
+      // Update Card Highlighting in Feed
+      document.querySelectorAll('.dispatch-card.is-continuous-active').forEach(c => c.classList.remove('is-continuous-active'));
+      const cardEl = document.getElementById(`card-${clip.id}`);
+      if (cardEl) {
+        cardEl.classList.add('is-continuous-active');
+        if (continuousAutoScroll) {
+          cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      // Load and Play Audio
+      continuousAudio.src = clip.audio_url;
+      continuousAudio.playbackRate = continuousSpeed;
+      continuousAudio.play().then(() => {
+        continuousIsPlaying = true;
+        updateContinuousPlayBtnUI();
+      }).catch(err => {
+        console.warn('Continuous audio play error:', err);
+      });
+
+      refreshLucideIcons();
+    }
+
+    function enterContinuousStandby() {
+      continuousStandby = true;
+      continuousIsPlaying = false;
+      updateContinuousPlayBtnUI();
+
+      const queueBadge = document.getElementById('continuousQueueBadge');
+      if (queueBadge) {
+        queueBadge.textContent = '🟢 Live Standby';
+        queueBadge.classList.add('standby');
+      }
+
+      const titleEl = document.getElementById('continuousTitle');
+      if (titleEl) {
+        titleEl.textContent = 'Live Standby: Waiting for incoming radio transmission...';
+      }
+
+      const scrub = document.getElementById('continuousScrub');
+      if (scrub) scrub.value = 0;
+
+      document.querySelectorAll('.dispatch-card.is-continuous-active').forEach(c => c.classList.remove('is-continuous-active'));
+      refreshLucideIcons();
+    }
+
+    function previousContinuousClip() {
+      if (!continuousAudio) return;
+      // If current clip played > 3s, restart it
+      if (continuousAudio.currentTime > 3.0) {
+        continuousAudio.currentTime = 0;
+      } else if (continuousIndex > 0) {
+        playContinuousClip(continuousIndex - 1);
+      }
+    }
+
+    function nextContinuousClip() {
+      if (continuousIndex < continuousQueue.length - 1) {
+        playContinuousClip(continuousIndex + 1);
+      } else {
+        enterContinuousStandby();
+      }
+    }
+
+    function toggleContinuousPlayPause() {
+      if (!continuousAudio) return;
+      if (continuousStandby) {
+        if (continuousQueue.length > 0) {
+          playContinuousClip(continuousQueue.length - 1);
+        }
+        return;
+      }
+
+      if (continuousIsPlaying) {
+        continuousAudio.pause();
+        continuousIsPlaying = false;
+      } else {
+        continuousAudio.play().catch(e => console.warn(e));
+        continuousIsPlaying = true;
+      }
+      updateContinuousPlayBtnUI();
+    }
+
+    function updateContinuousPlayBtnUI() {
+      const btn = document.getElementById('continuousPlayBtn');
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="${continuousIsPlaying ? 'pause' : 'play'}" class="lucide"></i>`;
+        refreshLucideIcons();
+      }
+    }
+
+    function updateContinuousQueueUI() {
+      const queueBadge = document.getElementById('continuousQueueBadge');
+      if (queueBadge && !continuousStandby) {
+        queueBadge.textContent = `Clip ${continuousIndex + 1} of ${continuousQueue.length}`;
+      }
+    }
+
+    function closeContinuousPlayer() {
+      if (continuousAudio) {
+        continuousAudio.pause();
+        continuousAudio.src = '';
+      }
+      clearTimeout(continuousInterClipTimer);
+      continuousIsPlaying = false;
+      continuousStandby = false;
+      continuousQueue = [];
+      continuousIndex = -1;
+
+      document.querySelectorAll('.dispatch-card.is-continuous-active').forEach(c => c.classList.remove('is-continuous-active'));
+
+      const bar = document.getElementById('continuousPlayerBar');
+      if (bar) bar.classList.remove('active');
+      refreshLucideIcons();
+    }
+
+    // ==============================================================================
+    // 3. LISTEN FROM TIME PICKER ENGINE
+    // ==============================================================================
+    function openTimePickerModal() {
+      const modal = document.getElementById('timePickerModal');
+      const dateInput = document.getElementById('timePickerDate');
+      const timeInput = document.getElementById('timePickerTime');
+
+      const now = new Date();
+      // Default to 15 minutes ago
+      const fifteenAgo = new Date(now.getTime() - 15 * 60 * 1000);
+
+      if (dateInput) dateInput.value = fifteenAgo.toISOString().slice(0, 10);
+      if (timeInput) timeInput.value = fifteenAgo.toTimeString().slice(0, 8);
+
+      updateTimePickerPreview();
+      if (modal) modal.classList.add('open');
+      refreshLucideIcons();
+    }
+
+    function closeTimePickerModal() {
+      const modal = document.getElementById('timePickerModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function updateTimePickerPreview() {
+      const dateVal = document.getElementById('timePickerDate')?.value;
+      const timeVal = document.getElementById('timePickerTime')?.value;
+      const matchEl = document.getElementById('timePickerMatchCount');
+
+      if (!dateVal || !timeVal || !matchEl) return;
+
+      const targetMs = new Date(`${dateVal}T${timeVal}`).getTime();
+      const count = dispatches.filter(d => new Date(d.created_at || 0).getTime() >= targetMs).length;
+      matchEl.textContent = `${count} dispatch${count !== 1 ? 'es' : ''} found from this time forward`;
+    }
+
+    // ==============================================================================
+    // 4. TIME-WINDOW BATCH AI TRANSCRIPTION ENGINE
+    // ==============================================================================
+    function openTimeTranscribeModal() {
+      const modal = document.getElementById('timeTranscribeModal');
+      const dateInput = document.getElementById('transcribeTargetDate');
+      const timeInput = document.getElementById('transcribeTargetTime');
+
+      const now = new Date();
+      timeTranscribeTargetDate = now;
+
+      if (dateInput) dateInput.value = now.toISOString().slice(0, 10);
+      if (timeInput) timeInput.value = now.toTimeString().slice(0, 8);
+
+      updateTimeTranscribePreview();
+      if (modal) modal.classList.add('open');
+      refreshLucideIcons();
+    }
+
+    function closeTimeTranscribeModal() {
+      const modal = document.getElementById('timeTranscribeModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function updateTimeTranscribePreview() {
+      const dateVal = document.getElementById('transcribeTargetDate')?.value;
+      const timeVal = document.getElementById('transcribeTargetTime')?.value;
+      const durSlider = document.getElementById('transcribeMinutesSlider');
+      const durLabel = document.getElementById('transcribeDurLabel');
+      const matchEl = document.getElementById('transcribeMatchCount');
+      const rangeEl = document.getElementById('transcribeRangeTime');
+      const btnText = document.getElementById('startTimeTranscribeBtnText');
+      const onlyPending = document.getElementById('transcribeOnlyPendingCheck')?.checked !== false;
+
+      if (!dateVal || !timeVal || !durSlider) return;
+
+      const mins = parseInt(durSlider.value, 10) || 15;
+      timeTranscribeMinutes = mins;
+      if (durLabel) durLabel.textContent = `${mins} minute${mins !== 1 ? 's' : ''}`;
+
+      const targetMs = new Date(`${dateVal}T${timeVal}`).getTime();
+      const windowMs = mins * 60 * 1000;
+
+      let startMs = targetMs;
+      let endMs = targetMs;
+
+      if (timeTranscribeDirection === 'around') {
+        startMs = targetMs - windowMs;
+        endMs = targetMs + windowMs;
+      } else if (timeTranscribeDirection === 'before') {
+        startMs = targetMs - windowMs;
+        endMs = targetMs;
+      } else if (timeTranscribeDirection === 'after') {
+        startMs = targetMs;
+        endMs = targetMs + windowMs;
+      }
+
+      const matchingClips = dispatches.filter(d => {
+        const t = new Date(d.created_at || 0).getTime();
+        if (t < startMs || t > endMs) return false;
+        if (onlyPending && d.transcribed) return false;
+        return true;
+      });
+
+      const count = matchingClips.length;
+      if (matchEl) matchEl.textContent = `${count} ${onlyPending ? 'untranscribed' : 'total'} clip${count !== 1 ? 's' : ''} in window`;
+      if (btnText) btnText.textContent = `Start AI Transcribing (${count})`;
+
+      const startStr = new Date(startMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const endStr = new Date(endMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (rangeEl) rangeEl.textContent = `${startStr} → ${endStr}`;
+    }
+
+    async function executeTimeTranscribe() {
+      const dateVal = document.getElementById('transcribeTargetDate')?.value;
+      const timeVal = document.getElementById('transcribeTargetTime')?.value;
+      const onlyPending = document.getElementById('transcribeOnlyPendingCheck')?.checked !== false;
+
+      if (!dateVal || !timeVal) return;
+
+      const targetMs = new Date(`${dateVal}T${timeVal}`).getTime();
+      const windowMs = timeTranscribeMinutes * 60 * 1000;
+
+      let startMs = targetMs;
+      let endMs = targetMs;
+
+      if (timeTranscribeDirection === 'around') {
+        startMs = targetMs - windowMs;
+        endMs = targetMs + windowMs;
+      } else if (timeTranscribeDirection === 'before') {
+        startMs = targetMs - windowMs;
+        endMs = targetMs;
+      } else if (timeTranscribeDirection === 'after') {
+        startMs = targetMs;
+        endMs = targetMs + windowMs;
+      }
+
+      const matchingClips = dispatches.filter(d => {
+        const t = new Date(d.created_at || 0).getTime();
+        if (t < startMs || t > endMs) return false;
+        if (onlyPending && d.transcribed) return false;
+        return true;
+      });
+
+      closeTimeTranscribeModal();
+
+      if (matchingClips.length === 0) {
+        showToast('No matching pending clips found in this time window.', 'info');
+        return;
+      }
+
+      const ids = matchingClips.map(c => String(c.id));
+      showToast(`Starting batch transcription for ${ids.length} clips...`, 'info');
+      await transcribeClips(ids);
+    }
+
     // ==============================================================================
     // EVENT LISTENERS, FILTER SHEET & UI HELPERS
     // ==============================================================================
@@ -5168,9 +7464,352 @@
         });
       });
 
-      // 6. Keyboard Shortcuts
+      // ============================================================================
+      // 6. Unified Live Stream & Recorder Monitor Capsule Handlers
+      // ============================================================================
+      const unifiedLiveTrigger = document.getElementById('unifiedLiveTrigger');
+      if (unifiedLiveTrigger) {
+        unifiedLiveTrigger.addEventListener('click', e => {
+          e.stopPropagation();
+          toggleListenLive();
+        });
+      }
+
+      const unifiedPopoverToggle = document.getElementById('unifiedPopoverToggle');
+      if (unifiedPopoverToggle) {
+        unifiedPopoverToggle.addEventListener('click', e => {
+          e.stopPropagation();
+          toggleLivePopover();
+        });
+      }
+
+      const stopLiveBtn = document.getElementById('stopLiveStreamBtn');
+      if (stopLiveBtn) {
+        stopLiveBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          stopListenLive();
+        });
+      }
+
+      const popoverSettingsBtn = document.getElementById('popoverSettingsBtn');
+      if (popoverSettingsBtn) {
+        popoverSettingsBtn.addEventListener('click', () => {
+          closeLivePopover();
+          openModal();
+        });
+      }
+
+      const liveMuteBtn = document.getElementById('liveMuteBtn');
+      if (liveMuteBtn) {
+        liveMuteBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          if (liveAudioElement) {
+            liveAudioElement.muted = !liveAudioElement.muted;
+            liveMuteBtn.innerHTML = `<i data-lucide="${liveAudioElement.muted ? 'volume-x' : 'volume-2'}" class="lucide-sm"></i>`;
+            refreshLucideIcons();
+          }
+        });
+      }
+
+      const liveVolSlider = document.getElementById('liveVolumeSlider');
+      const liveVolText = document.getElementById('liveVolumeText');
+      if (liveVolSlider) {
+        liveVolSlider.addEventListener('input', e => {
+          const val = parseFloat(e.target.value);
+          if (liveAudioElement) {
+            liveAudioElement.volume = val;
+          }
+          if (liveVolText) {
+            liveVolText.textContent = `${Math.round(val * 100)}%`;
+          }
+        });
+      }
+
+      // ============================================================================
+      // 7. Listen from Time Modal Handlers
+      // ============================================================================
+      const listenFromTimeBtn = document.getElementById('listenFromTimeBtn');
+      if (listenFromTimeBtn) {
+        listenFromTimeBtn.addEventListener('click', openTimePickerModal);
+      }
+
+      const closeTimePickerBtn = document.getElementById('closeTimePickerBtn');
+      if (closeTimePickerBtn) {
+        closeTimePickerBtn.addEventListener('click', closeTimePickerModal);
+      }
+
+      const cancelTimePickerBtn = document.getElementById('cancelTimePickerBtn');
+      if (cancelTimePickerBtn) {
+        cancelTimePickerBtn.addEventListener('click', closeTimePickerModal);
+      }
+
+      const timePickerModal = document.getElementById('timePickerModal');
+      if (timePickerModal) {
+        timePickerModal.addEventListener('click', e => {
+          if (e.target.id === 'timePickerModal') closeTimePickerModal();
+        });
+      }
+
+      // Preset Jump Buttons in Time Picker
+      document.querySelectorAll('#timePickerModal .time-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#timePickerModal .time-preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const mins = parseInt(btn.getAttribute('data-minutes'), 10);
+          const preset = btn.getAttribute('data-preset');
+          const dateInput = document.getElementById('timePickerDate');
+          const timeInput = document.getElementById('timePickerTime');
+
+          let targetDate = new Date();
+          if (preset === 'today_start') {
+            targetDate.setHours(0, 0, 0, 0);
+          } else if (!isNaN(mins)) {
+            targetDate = new Date(Date.now() - mins * 60 * 1000);
+          }
+
+          if (dateInput) dateInput.value = targetDate.toISOString().slice(0, 10);
+          if (timeInput) timeInput.value = targetDate.toTimeString().slice(0, 8);
+          updateTimePickerPreview();
+        });
+      });
+
+      const timePickerDateInput = document.getElementById('timePickerDate');
+      const timePickerTimeInput = document.getElementById('timePickerTime');
+      if (timePickerDateInput) timePickerDateInput.addEventListener('input', updateTimePickerPreview);
+      if (timePickerTimeInput) timePickerTimeInput.addEventListener('input', updateTimePickerPreview);
+
+      const startTimePlaybackBtn = document.getElementById('startTimePlaybackBtn');
+      if (startTimePlaybackBtn) {
+        startTimePlaybackBtn.addEventListener('click', () => {
+          const dateVal = document.getElementById('timePickerDate')?.value;
+          const timeVal = document.getElementById('timePickerTime')?.value;
+          if (!dateVal || !timeVal) return;
+
+          const targetDate = new Date(`${dateVal}T${timeVal}`);
+          closeTimePickerModal();
+          startContinuousPlaybackFromTime(targetDate);
+        });
+      }
+
+      // ============================================================================
+      // 8. Transcribe by Time Window Modal Handlers
+      // ============================================================================
+      const openTimeTranscribeBtn = document.getElementById('openTimeTranscribeBtn');
+      if (openTimeTranscribeBtn) {
+        openTimeTranscribeBtn.addEventListener('click', openTimeTranscribeModal);
+      }
+
+      const closeTimeTranscribeBtn = document.getElementById('closeTimeTranscribeBtn');
+      if (closeTimeTranscribeBtn) {
+        closeTimeTranscribeBtn.addEventListener('click', closeTimeTranscribeModal);
+      }
+
+      const cancelTimeTranscribeBtn = document.getElementById('cancelTimeTranscribeBtn');
+      if (cancelTimeTranscribeBtn) {
+        cancelTimeTranscribeBtn.addEventListener('click', closeTimeTranscribeModal);
+      }
+
+      const timeTranscribeModal = document.getElementById('timeTranscribeModal');
+      if (timeTranscribeModal) {
+        timeTranscribeModal.addEventListener('click', e => {
+          if (e.target.id === 'timeTranscribeModal') closeTimeTranscribeModal();
+        });
+      }
+
+      // Direction buttons: Around, Before, After
+      document.querySelectorAll('.time-direction-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.time-direction-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          timeTranscribeDirection = btn.getAttribute('data-dir') || 'around';
+          updateTimeTranscribePreview();
+        });
+      });
+
+      // Minute Duration Slider & Presets
+      const transcribeMinutesSlider = document.getElementById('transcribeMinutesSlider');
+      if (transcribeMinutesSlider) {
+        transcribeMinutesSlider.addEventListener('input', () => {
+          const val = parseInt(transcribeMinutesSlider.value, 10);
+          document.querySelectorAll('.dur-preset-btn').forEach(b => {
+            b.classList.toggle('active', parseInt(b.getAttribute('data-mins'), 10) === val);
+          });
+          updateTimeTranscribePreview();
+        });
+      }
+
+      document.querySelectorAll('.dur-preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.dur-preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const mins = parseInt(btn.getAttribute('data-mins'), 10);
+          if (transcribeMinutesSlider) transcribeMinutesSlider.value = mins;
+          updateTimeTranscribePreview();
+        });
+      });
+
+      // Target Time Shortcut Buttons (Now, -15m, -1h)
+      const transcribeTimeNowBtn = document.getElementById('transcribeTimeNowBtn');
+      if (transcribeTimeNowBtn) {
+        transcribeTimeNowBtn.addEventListener('click', () => {
+          const now = new Date();
+          const d = document.getElementById('transcribeTargetDate');
+          const t = document.getElementById('transcribeTargetTime');
+          if (d) d.value = now.toISOString().slice(0, 10);
+          if (t) t.value = now.toTimeString().slice(0, 8);
+          updateTimeTranscribePreview();
+        });
+      }
+
+      const transcribeTime15mBtn = document.getElementById('transcribeTime15mBtn');
+      if (transcribeTime15mBtn) {
+        transcribeTime15mBtn.addEventListener('click', () => {
+          const now = new Date(Date.now() - 15 * 60 * 1000);
+          const d = document.getElementById('transcribeTargetDate');
+          const t = document.getElementById('transcribeTargetTime');
+          if (d) d.value = now.toISOString().slice(0, 10);
+          if (t) t.value = now.toTimeString().slice(0, 8);
+          updateTimeTranscribePreview();
+        });
+      }
+
+      const transcribeTime1hBtn = document.getElementById('transcribeTime1hBtn');
+      if (transcribeTime1hBtn) {
+        transcribeTime1hBtn.addEventListener('click', () => {
+          const now = new Date(Date.now() - 60 * 60 * 1000);
+          const d = document.getElementById('transcribeTargetDate');
+          const t = document.getElementById('transcribeTargetTime');
+          if (d) d.value = now.toISOString().slice(0, 10);
+          if (t) t.value = now.toTimeString().slice(0, 8);
+          updateTimeTranscribePreview();
+        });
+      }
+
+      const transcribeTargetDate = document.getElementById('transcribeTargetDate');
+      const transcribeTargetTime = document.getElementById('transcribeTargetTime');
+      if (transcribeTargetDate) transcribeTargetDate.addEventListener('input', updateTimeTranscribePreview);
+      if (transcribeTargetTime) transcribeTargetTime.addEventListener('input', updateTimeTranscribePreview);
+
+      const transcribeOnlyPendingCheck = document.getElementById('transcribeOnlyPendingCheck');
+      if (transcribeOnlyPendingCheck) {
+        transcribeOnlyPendingCheck.addEventListener('change', updateTimeTranscribePreview);
+      }
+
+      const startTimeTranscribeBtn = document.getElementById('startTimeTranscribeBtn');
+      if (startTimeTranscribeBtn) {
+        startTimeTranscribeBtn.addEventListener('click', executeTimeTranscribe);
+      }
+
+      // ============================================================================
+      // 9. Floating Continuous Player Dock Handlers
+      // ============================================================================
+      const continuousPrevBtn = document.getElementById('continuousPrevBtn');
+      if (continuousPrevBtn) {
+        continuousPrevBtn.addEventListener('click', previousContinuousClip);
+      }
+
+      const continuousPlayBtn = document.getElementById('continuousPlayBtn');
+      if (continuousPlayBtn) {
+        continuousPlayBtn.addEventListener('click', toggleContinuousPlayPause);
+      }
+
+      const continuousNextBtn = document.getElementById('continuousNextBtn');
+      if (continuousNextBtn) {
+        continuousNextBtn.addEventListener('click', nextContinuousClip);
+      }
+
+      const continuousCloseBtn = document.getElementById('continuousCloseBtn');
+      if (continuousCloseBtn) {
+        continuousCloseBtn.addEventListener('click', closeContinuousPlayer);
+      }
+
+      const continuousJumpTimeBtn = document.getElementById('continuousJumpTimeBtn');
+      if (continuousJumpTimeBtn) {
+        continuousJumpTimeBtn.addEventListener('click', openTimePickerModal);
+      }
+
+      const continuousFollowToggle = document.getElementById('continuousFollowToggle');
+      if (continuousFollowToggle) {
+        continuousFollowToggle.addEventListener('click', () => {
+          continuousAutoScroll = !continuousAutoScroll;
+          continuousFollowToggle.classList.toggle('active', continuousAutoScroll);
+          showToast(continuousAutoScroll ? 'Auto-scroll to active card enabled' : 'Auto-scroll disabled', 'info');
+        });
+      }
+
+      const continuousScrub = document.getElementById('continuousScrub');
+      if (continuousScrub) {
+        continuousScrub.addEventListener('input', e => {
+          if (continuousAudio && !isNaN(continuousAudio.duration) && continuousAudio.duration > 0) {
+            continuousAudio.currentTime = (parseFloat(e.target.value) / 100) * continuousAudio.duration;
+          }
+        });
+      }
+
+      // Continuous Player Speed Selector
+      const continuousSpeedBtn = document.getElementById('continuousSpeedBtn');
+      const continuousSpeedMenu = document.getElementById('continuousSpeedMenu');
+      if (continuousSpeedBtn && continuousSpeedMenu) {
+        continuousSpeedBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const isOpen = continuousSpeedMenu.classList.contains('open');
+          continuousSpeedMenu.classList.toggle('open', !isOpen);
+        });
+
+        continuousSpeedMenu.querySelectorAll('.speed-opt').forEach(opt => {
+          opt.addEventListener('click', e => {
+            e.stopPropagation();
+            const speed = parseFloat(opt.getAttribute('data-speed'));
+            continuousSpeed = speed;
+            if (continuousAudio) continuousAudio.playbackRate = speed;
+
+            continuousSpeedMenu.querySelectorAll('.speed-opt').forEach(o => {
+              o.classList.toggle('active', parseFloat(o.getAttribute('data-speed')) === speed);
+            });
+            continuousSpeedMenu.classList.remove('open');
+
+            const valEl = document.getElementById('continuousSpeedVal');
+            if (valEl) valEl.textContent = `${speed}x`;
+          });
+        });
+      }
+
+      // ============================================================================
+      // 10. Global Keyboard Shortcuts
+      // ============================================================================
       document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        const isEditing = activeTag === 'input' || activeTag === 'textarea' || document.activeElement.isContentEditable;
+
+        // Space to toggle Play/Pause continuous feed or live stream
+        if (e.code === 'Space' && !isEditing) {
+          e.preventDefault();
+          if (continuousQueue.length > 0) {
+            toggleContinuousPlayPause();
+          } else if (liveIsPlaying) {
+            toggleListenLive();
+          } else if (currentlyPlayingAudio) {
+            if (currentlyPlayingAudio.paused) currentlyPlayingAudio.play();
+            else currentlyPlayingAudio.pause();
+          }
+        }
+        // Alt+Left -> Previous Continuous Clip
+        else if (e.altKey && e.key === 'ArrowLeft') {
+          e.preventDefault();
+          if (continuousQueue.length > 0) previousContinuousClip();
+        }
+        // Alt+Right -> Next Continuous Clip
+        else if (e.altKey && e.key === 'ArrowRight') {
+          e.preventDefault();
+          if (continuousQueue.length > 0) nextContinuousClip();
+        }
+        // Shift+L -> Toggle Listen Live
+        else if (e.shiftKey && e.key.toLowerCase() === 'l' && !isEditing) {
+          e.preventDefault();
+          toggleListenLive();
+        }
+        else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
           e.preventDefault();
           if (searchInput) searchInput.focus();
         } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
@@ -5183,8 +7822,19 @@
           e.preventDefault();
           openFilterSheet();
         } else if (e.key === 'Escape') {
-          if (filterSheetOverlay && filterSheetOverlay.classList.contains('open')) {
+          closeLivePopover();
+          const subPanel = document.getElementById('settingsSubPanel');
+          const setModal = document.getElementById('settingsModal');
+          if (setModal && setModal.classList.contains('open') && subPanel && subPanel.style.display !== 'none') {
+            closeSettingsSubPanel();
+          } else if (setModal && setModal.classList.contains('open')) {
+            closeModal();
+          } else if (filterSheetOverlay && filterSheetOverlay.classList.contains('open')) {
             closeFilterSheet();
+          } else if (timePickerModal && timePickerModal.classList.contains('open')) {
+            closeTimePickerModal();
+          } else if (timeTranscribeModal && timeTranscribeModal.classList.contains('open')) {
+            closeTimeTranscribeModal();
           } else if (currentSearch) {
             currentSearch = '';
             if (searchInput) searchInput.value = '';
@@ -5193,13 +7843,18 @@
         }
       });
 
-      // Close open dropdowns on background click
-      document.addEventListener('click', () => {
+      // Close open dropdowns and popovers on background click
+      document.addEventListener('click', e => {
         document.querySelectorAll('.speed-dropdown-menu.open').forEach(m => m.classList.remove('open'));
         const scopeMenu = document.getElementById('searchScopeMenu');
         const scopeBtn = document.getElementById('searchScopeBtn');
         if (scopeMenu) scopeMenu.classList.remove('open');
         if (scopeBtn) scopeBtn.classList.remove('open');
+
+        const liveWrap = document.getElementById('unifiedLiveWrap');
+        if (liveWrap && !liveWrap.contains(e.target)) {
+          closeLivePopover();
+        }
       });
 
       document.getElementById('quick-search-btn').addEventListener('click', () => {
@@ -5277,6 +7932,30 @@
       document.getElementById('closeSettingsBtn').addEventListener('click', closeModal);
       document.getElementById('cancelSettingsBtn').addEventListener('click', closeModal);
       document.getElementById('saveSettingsBtn').addEventListener('click', saveConfig);
+
+      // Settings Tile Card Clicks -> Open Focused Sub-Panel Editor
+      document.querySelectorAll('.settings-tile-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const panelKey = card.getAttribute('data-panel');
+          if (panelKey) openSettingsSubPanel(panelKey);
+        });
+      });
+
+      const subBackBtn = document.getElementById('subPanelBackBtn');
+      if (subBackBtn) subBackBtn.addEventListener('click', closeSettingsSubPanel);
+
+      const subDoneBtn = document.getElementById('subPanelDoneBtn');
+      if (subDoneBtn) subDoneBtn.addEventListener('click', closeSettingsSubPanel);
+
+      const subClearBtn = document.getElementById('subPanelClearBtn');
+      if (subClearBtn) {
+        subClearBtn.addEventListener('click', () => {
+          const contentEl = document.getElementById('subPanelContent');
+          if (contentEl) {
+            contentEl.querySelectorAll('input[type="text"], input[type="password"]').forEach(inp => inp.value = '');
+          }
+        });
+      }
 
       document.getElementById('settingsModal').addEventListener('click', e => {
         if (e.target.id === 'settingsModal') closeModal();
@@ -5421,11 +8100,14 @@
     }
 
     function openModal() {
+      closeSettingsSubPanel();
+      syncSettingsTilesUI();
       document.getElementById('settingsModal').classList.add('open');
       refreshLucideIcons();
     }
 
     function closeModal() {
+      closeSettingsSubPanel();
       document.getElementById('settingsModal').classList.remove('open');
     }
 
