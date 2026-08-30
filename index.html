@@ -2701,10 +2701,10 @@
       display: block;
     }
     .continuous-player-grid {
-      max-width: 1080px;
+      max-width: 1280px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 280px 1fr 260px;
+      grid-template-columns: minmax(180px, 1fr) minmax(280px, 1.5fr) auto;
       align-items: center;
       gap: 16px;
     }
@@ -2713,6 +2713,7 @@
       flex-direction: column;
       gap: 2px;
       min-width: 0;
+      overflow: hidden;
     }
     .continuous-title-row {
       display: flex;
@@ -2746,6 +2747,7 @@
       flex-direction: column;
       align-items: center;
       gap: 4px;
+      min-width: 0;
     }
     .continuous-btn-row {
       display: flex;
@@ -2759,6 +2761,9 @@
       border-radius: 50%;
       width: 32px;
       height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      flex-shrink: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -2778,6 +2783,9 @@
       border-radius: 50%;
       width: 40px;
       height: 40px;
+      min-width: 40px;
+      min-height: 40px;
+      flex-shrink: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -2800,6 +2808,7 @@
       font-family: var(--font-mono);
       color: var(--on-surface-variant);
       min-width: 32px;
+      flex-shrink: 0;
     }
     .continuous-slider {
       flex: 1;
@@ -2826,6 +2835,7 @@
       align-items: center;
       justify-content: flex-end;
       gap: 8px;
+      flex-shrink: 0;
     }
     .continuous-queue-badge {
       font-size: 11px;
@@ -2836,6 +2846,7 @@
       border: 1px solid var(--outline);
       color: var(--on-surface-variant);
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .continuous-queue-badge.standby {
       border-color: rgba(16, 185, 129, 0.4);
@@ -2855,11 +2866,35 @@
       cursor: pointer;
       transition: all 0.15s ease;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .continuous-toggle-btn:hover, .continuous-toggle-btn.active {
       background: var(--surface-container-highest);
       border-color: var(--primary);
       color: var(--primary);
+    }
+    #continuousSpeedWrap {
+      position: relative;
+      display: inline-flex;
+    }
+    #continuousSpeedWrap .speed-dropdown-menu {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      left: auto;
+      background: var(--surface-container-highest);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius-md);
+      box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.6);
+      display: none;
+      flex-direction: row;
+      white-space: nowrap;
+      padding: 4px;
+      gap: 3px;
+      z-index: 1500;
+    }
+    #continuousSpeedWrap .speed-dropdown-menu.open {
+      display: flex;
     }
 
     /* Active Highlight on Playing Feed Card */
@@ -5504,11 +5539,12 @@
         });
       });
 
-      // Speed Selector Dropdown & Option Handler
-      document.querySelectorAll('.speed-chip').forEach(chip => {
+      // Speed Selector Dropdown & Option Handler (Scoped only to dispatch feed cards)
+      document.querySelectorAll('.dispatch-card .speed-chip').forEach(chip => {
         chip.addEventListener('click', e => {
           e.stopPropagation();
           const id = chip.getAttribute('data-id');
+          if (!id) return;
           const menu = document.getElementById(`speedMenu-${id}`);
           const wasOpen = menu && menu.classList.contains('open');
 
@@ -5521,11 +5557,12 @@
         });
       });
 
-      document.querySelectorAll('.speed-opt').forEach(opt => {
+      document.querySelectorAll('.dispatch-card .speed-opt').forEach(opt => {
         opt.addEventListener('click', e => {
           e.stopPropagation();
           const audioId = opt.getAttribute('data-audio-id');
           const id = opt.getAttribute('data-id');
+          if (!id) return;
           const speed = parseFloat(opt.getAttribute('data-speed'));
           const audio = document.getElementById(audioId);
           if (audio) {
@@ -7099,8 +7136,48 @@
     }
 
     // ==============================================================================
-    // 3. LISTEN FROM TIME PICKER ENGINE
+    // 3. LISTEN FROM TIME PICKER ENGINE & HELPERS
     // ==============================================================================
+    function formatLocalDateForInput(d) {
+      if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function formatLocalTimeForInput(d) {
+      if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+      const hours = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const secs = String(d.getSeconds()).padStart(2, '0');
+      return `${hours}:${mins}:${secs}`;
+    }
+
+    function parseLocalDateTimeInput(dateVal, timeVal) {
+      if (!dateVal) return Date.now();
+      if (!timeVal) timeVal = '00:00:00';
+      const parts = dateVal.split('-');
+      const timeParts = timeVal.split(':');
+      if (parts.length === 3 && timeParts.length >= 2) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const hours = parseInt(timeParts[0], 10) || 0;
+        const minutes = parseInt(timeParts[1], 10) || 0;
+        const seconds = parseInt(timeParts[2], 10) || 0;
+        return new Date(year, month, day, hours, minutes, seconds).getTime();
+      }
+      return new Date(`${dateVal}T${timeVal}`).getTime();
+    }
+
+    function isClipTranscribed(d) {
+      if (!d) return false;
+      if (d.transcribed === true) return true;
+      if (typeof d.transcript === 'string' && d.transcript.trim().length > 0 && d.transcript.trim() !== '(No speech detected)') return true;
+      return false;
+    }
+
     function openTimePickerModal() {
       const modal = document.getElementById('timePickerModal');
       const dateInput = document.getElementById('timePickerDate');
@@ -7110,8 +7187,8 @@
       // Default to 15 minutes ago
       const fifteenAgo = new Date(now.getTime() - 15 * 60 * 1000);
 
-      if (dateInput) dateInput.value = fifteenAgo.toISOString().slice(0, 10);
-      if (timeInput) timeInput.value = fifteenAgo.toTimeString().slice(0, 8);
+      if (dateInput) dateInput.value = formatLocalDateForInput(fifteenAgo);
+      if (timeInput) timeInput.value = formatLocalTimeForInput(fifteenAgo);
 
       updateTimePickerPreview();
       if (modal) modal.classList.add('open');
@@ -7130,7 +7207,7 @@
 
       if (!dateVal || !timeVal || !matchEl) return;
 
-      const targetMs = new Date(`${dateVal}T${timeVal}`).getTime();
+      const targetMs = parseLocalDateTimeInput(dateVal, timeVal);
       const count = dispatches.filter(d => new Date(d.created_at || 0).getTime() >= targetMs).length;
       matchEl.textContent = `${count} dispatch${count !== 1 ? 'es' : ''} found from this time forward`;
     }
@@ -7146,8 +7223,8 @@
       const now = new Date();
       timeTranscribeTargetDate = now;
 
-      if (dateInput) dateInput.value = now.toISOString().slice(0, 10);
-      if (timeInput) timeInput.value = now.toTimeString().slice(0, 8);
+      if (dateInput) dateInput.value = formatLocalDateForInput(now);
+      if (timeInput) timeInput.value = formatLocalTimeForInput(now);
 
       updateTimeTranscribePreview();
       if (modal) modal.classList.add('open');
@@ -7175,7 +7252,7 @@
       timeTranscribeMinutes = mins;
       if (durLabel) durLabel.textContent = `${mins} minute${mins !== 1 ? 's' : ''}`;
 
-      const targetMs = new Date(`${dateVal}T${timeVal}`).getTime();
+      const targetMs = parseLocalDateTimeInput(dateVal, timeVal);
       const windowMs = mins * 60 * 1000;
 
       let startMs = targetMs;
@@ -7195,7 +7272,7 @@
       const matchingClips = dispatches.filter(d => {
         const t = new Date(d.created_at || 0).getTime();
         if (t < startMs || t > endMs) return false;
-        if (onlyPending && d.transcribed) return false;
+        if (onlyPending && isClipTranscribed(d)) return false;
         return true;
       });
 
@@ -7215,7 +7292,7 @@
 
       if (!dateVal || !timeVal) return;
 
-      const targetMs = new Date(`${dateVal}T${timeVal}`).getTime();
+      const targetMs = parseLocalDateTimeInput(dateVal, timeVal);
       const windowMs = timeTranscribeMinutes * 60 * 1000;
 
       let startMs = targetMs;
@@ -7235,7 +7312,7 @@
       const matchingClips = dispatches.filter(d => {
         const t = new Date(d.created_at || 0).getTime();
         if (t < startMs || t > endMs) return false;
-        if (onlyPending && d.transcribed) return false;
+        if (onlyPending && isClipTranscribed(d)) return false;
         return true;
       });
 
@@ -7568,8 +7645,8 @@
             targetDate = new Date(Date.now() - mins * 60 * 1000);
           }
 
-          if (dateInput) dateInput.value = targetDate.toISOString().slice(0, 10);
-          if (timeInput) timeInput.value = targetDate.toTimeString().slice(0, 8);
+          if (dateInput) dateInput.value = formatLocalDateForInput(targetDate);
+          if (timeInput) timeInput.value = formatLocalTimeForInput(targetDate);
           updateTimePickerPreview();
         });
       });
@@ -7586,9 +7663,9 @@
           const timeVal = document.getElementById('timePickerTime')?.value;
           if (!dateVal || !timeVal) return;
 
-          const targetDate = new Date(`${dateVal}T${timeVal}`);
+          const targetMs = parseLocalDateTimeInput(dateVal, timeVal);
           closeTimePickerModal();
-          startContinuousPlaybackFromTime(targetDate);
+          startContinuousPlaybackFromTime(new Date(targetMs));
         });
       }
 
@@ -7656,8 +7733,8 @@
           const now = new Date();
           const d = document.getElementById('transcribeTargetDate');
           const t = document.getElementById('transcribeTargetTime');
-          if (d) d.value = now.toISOString().slice(0, 10);
-          if (t) t.value = now.toTimeString().slice(0, 8);
+          if (d) d.value = formatLocalDateForInput(now);
+          if (t) t.value = formatLocalTimeForInput(now);
           updateTimeTranscribePreview();
         });
       }
@@ -7668,8 +7745,8 @@
           const now = new Date(Date.now() - 15 * 60 * 1000);
           const d = document.getElementById('transcribeTargetDate');
           const t = document.getElementById('transcribeTargetTime');
-          if (d) d.value = now.toISOString().slice(0, 10);
-          if (t) t.value = now.toTimeString().slice(0, 8);
+          if (d) d.value = formatLocalDateForInput(now);
+          if (t) t.value = formatLocalTimeForInput(now);
           updateTimeTranscribePreview();
         });
       }
@@ -7680,8 +7757,8 @@
           const now = new Date(Date.now() - 60 * 60 * 1000);
           const d = document.getElementById('transcribeTargetDate');
           const t = document.getElementById('transcribeTargetTime');
-          if (d) d.value = now.toISOString().slice(0, 10);
-          if (t) t.value = now.toTimeString().slice(0, 8);
+          if (d) d.value = formatLocalDateForInput(now);
+          if (t) t.value = formatLocalTimeForInput(now);
           updateTimeTranscribePreview();
         });
       }
